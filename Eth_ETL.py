@@ -5,6 +5,11 @@ import logging
 import pandas as pd
 import hexbytes
 import utils
+import datetime 
+
+now = datetime.datetime.now()
+# Format the date to 'day-month-year'
+DATE = now.strftime('%d%m%y')
 
 
 logger = logging.getLogger(__name__)
@@ -55,7 +60,10 @@ class Eth_tracker():
             summary ={}
             tx = self.w3.eth.get_transaction(tx_hash)
             for key in collect_keys:
-                summary[key]=tx[key]
+                if(key=='hash'):
+                    summary[key]=tx[key].hex()
+                else:
+                    summary[key]=tx[key]
             
             summary = pd.DataFrame(summary, index=[0])
             collect=pd.concat([collect, summary])
@@ -129,7 +137,8 @@ class Eth_tracker():
         subset = collect.loc[collect[addr_pos]==search_entry]
         if(len(subset)):
             logger.info(f"{len(subset)} match(es) was(were) found for the contract {search_entry}")
-            self.write_result_addrs(search_entry, subset)
+            subset = subset[['hash', 'from', 'to']]
+            self.write_result_addrs(search_entry, subset, addr_pos)
         else:
             logger.info(f"no interacting addresses were found for the contract {search_entry}")
 
@@ -161,27 +170,27 @@ class Eth_tracker():
         write['contract_address']=search_entry
         if(contract_abi is None):
             inner={}
-            inner['transaction_hash']=collect_subset['hash'].hex()
+            inner['transaction_hash']=collect_subset['hash']
             inner['contract_address']=collect_subset['to']
             write['output']=inner
         else:
             func, params = self.decode_input(collect_subset['input'], collect_subset['to'], contract_abi)
             inner={}
-            inner['transaction_hash']=collect_subset['hash'].hex()
+            inner['transaction_hash']=collect_subset['hash']
             inner['contract_address']=collect_subset['to']
             inner['decoded']={}
             inner['decoded']['function_name']=func.function_identifier
             inner['decoded']['values']=params
             write['output']=inner
         
-        utils.check_dir("./output")
-        with open(f"./output/block_id_{self.block_id}_to_contract_addr_{search_entry}_tx_{inner['transaction_hash']}.txt", 'w') as outfile:
+        utils.check_dir(f"./output/{DATE}")
+        with open(f"./output/{DATE}/block_id_{self.block_id}_to_contract_addr_{search_entry}_tx_{inner['transaction_hash']}.txt", 'w') as outfile:
             json.dump(write, outfile)
         logger.info(f"results (contracts that were calling the target contract) for {self.block_id} and the contract {search_entry} was successfully saved")
 
-    def write_result_addrs(self, search_entry, subset):
-        utils.check_dir("./output")
-        subset.to_csv(f"./output/block_id_{self.block_id}_from_contract_addr_{search_entry}.csv")
+    def write_result_addrs(self, search_entry, subset, addr_pos):
+        utils.check_dir(f"./output/{DATE}")
+        subset.to_csv(f"./output/{DATE}/block_id_{self.block_id}_{addr_pos}_contract_addr_{search_entry}.csv", index=False)
         logger.info(f"results for the contract {search_entry} was successfully saved")
 
 
@@ -230,8 +239,8 @@ class Eth_tracker():
                     logger.error(f"output could not be decoded. output: {output}  \n tx_hash: {inner['transactionHash']}, skipping the decoding of the output. Error raised : {e}")
                 
             write['trace']=inner
-        utils.check_dir("./output")
-        with open(f"./output/block_id_{self.block_id}_to_contract_addr_{search_entry}_trace_index_{action_subset.name}.txt", 'w') as outfile:
+        utils.check_dir(f"./output/{DATE}")
+        with open(f"./output/{DATE}/block_id_{self.block_id}_to_contract_addr_{search_entry}_trace_index_{action_subset.name}.txt", 'w') as outfile:
             json.dump(write, outfile)
         logger.info(f"results (traces that were calling the target contract) for {self.block_id} and the contract {search_entry} was successfully saved")
 

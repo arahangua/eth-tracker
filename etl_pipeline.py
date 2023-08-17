@@ -24,20 +24,19 @@ def run_job(args, w3, apis):
         # get transactions 
         txs = eth.get_transactions(blockinfo)
         # get contracts that were called 
-        result = eth.find_interacting_addrs(txs, addr_pos='from')
+        eth.find_interacting_addrs(txs, addr_pos='from')
         
 
 
     elif args.job == "contracts_to":
-        logger.info(f"extracting contracts that call to the input contract {args.addr} in block {args.blocknumber}")
+        logger.info(f"extracting contracts that make calls to the input contract {args.addr} in block {args.blocknumber}")
         # fetch blockinfo
         blockinfo = eth.fetch_blockinfo()
         # get transactions 
         txs = eth.get_transactions(blockinfo)
         # get contracts that were called 
-        result = eth.find_interacting_addrs(txs, ETHERSCAN_API=ETHERSCAN_API, addr_pos='to')
-        #write(export) the result
-        eth.write_result_addrs(result, 'to')
+        eth.find_interacting_addrs(txs, addr_pos='to')
+        
 
 
     elif args.job == "txs_from":
