@@ -112,7 +112,7 @@ class Eth_tracker():
         search_entry = self.contract
         logger.info(f'searching for contract {search_entry} in {addr_pos} position')
         # find contracts calling the target contract
-        subset = collect.loc[collect['to']==search_entry]
+        subset = collect.loc[collect[addr_pos]==search_entry]
         if(len(subset)):
             logger.info(f"{len(subset)} match(es) was(were) found for the contract {search_entry}")
             # check if the interacting address is a contract
@@ -123,7 +123,6 @@ class Eth_tracker():
                 logger.info(f"ABI for the contract {search_entry} succefully fetched.")
                 
             for ind in range(len(subset)):
-                
                 self.write_result_tx(search_entry, subset.iloc[ind,:], contract_abi, addr_pos)
                 
         else:
@@ -168,6 +167,7 @@ class Eth_tracker():
         write ={}
         write['block_identifier']=self.block_id
         write['contract_address']=search_entry
+        write['from']=collect_subset['from']
         if(contract_abi is None):
             inner={}
             inner['transaction_hash']=collect_subset['hash']
@@ -184,7 +184,7 @@ class Eth_tracker():
             write['output']=inner
         
         utils.check_dir(f"./output/{DATE}")
-        with open(f"./output/{DATE}/block_id_{self.block_id}_to_contract_addr_{search_entry}_tx_{inner['transaction_hash']}.txt", 'w') as outfile:
+        with open(f"./output/{DATE}/block_id_{self.block_id}_{addr_pos}_contract_addr_{search_entry}_tx_{inner['transaction_hash']}.txt", 'w') as outfile:
             json.dump(write, outfile)
         logger.info(f"results (contracts that were calling the target contract) for {self.block_id} and the contract {search_entry} was successfully saved")
 
@@ -249,7 +249,7 @@ class Eth_tracker():
 
     def get_abi(self, contract_addr:str, ETHERSCAN_API=None, contract_type=None):
         # check its its cached/called before
-        cached_file = f"./utils/abis/{contract_addr}.txt"
+        cached_file = f"./abis/{contract_addr}.txt"
         if os.path.exists(cached_file):
             with open(cached_file, 'r') as infile:
                 abi_result = json.load(infile)

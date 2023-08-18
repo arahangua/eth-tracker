@@ -134,3 +134,7 @@ dist
 __pycache__
 abis/
 observation_list/
+
+
+# output fol
+output/
