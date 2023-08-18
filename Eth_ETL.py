@@ -6,6 +6,7 @@ import pandas as pd
 import hexbytes
 import utils
 import datetime 
+from web3 import Web3
 
 now = datetime.datetime.now()
 # Format the date to 'day-month-year'
@@ -93,15 +94,8 @@ class Eth_tracker():
         index = actions.loc[actions['to']==search_entry.lower()].index
         if(len(index)):
             logger.info(f"{len(index)} match(es) was(were) found for the contract {search_entry}")
-            # check if the interacting address is a contract
-            contract_abi, verdict = self.get_contract_abi(search_entry, ETHERSCAN_API)
-            if(contract_abi is None):
-                logger.error(f"ABI for the contract {search_entry} is not recoverable. Skipping the decoding step")
-            else:
-                logger.info(f"ABI for the contract {search_entry} succefully fetched.")
-            
             for ind in index:    
-                self.write_result_trace(search_entry, actions.iloc[ind,:], contract_abi, blocktrace[ind], addr_pos='to')
+                self.write_result_trace(search_entry, actions.iloc[ind,:], blocktrace[ind], addr_pos, ETHERSCAN_API=ETHERSCAN_API)
                 
         else:
             logger.info(f"no traces were calling the contract {search_entry}")
@@ -116,14 +110,8 @@ class Eth_tracker():
         if(len(subset)):
             logger.info(f"{len(subset)} match(es) was(were) found for the contract {search_entry}")
             # check if the interacting address is a contract
-            contract_abi, verdict = self.get_contract_abi(search_entry, ETHERSCAN_API)
-            if(contract_abi is None):
-                logger.error(f"ABI for the contract {search_entry} is not recoverable. Skipping the decoding step")
-            else:
-                logger.info(f"ABI for the contract {search_entry} succefully fetched.")
-                
             for ind in range(len(subset)):
-                self.write_result_tx(search_entry, subset.iloc[ind,:], contract_abi, addr_pos)
+                self.write_result_tx(search_entry, subset.iloc[ind,:], addr_pos, ETHERSCAN_API=ETHERSCAN_API)
                 
         else:
             logger.info(f"no contracts were calling the contract {search_entry}")
@@ -163,28 +151,33 @@ class Eth_tracker():
 
         return func, params
     
-    def write_result_tx(self, search_entry, collect_subset, contract_abi, addr_pos='to'):
+    def write_result_tx(self, search_entry, collect_subset, addr_pos='to', ETHERSCAN_API=None):
         write ={}
         write['block_identifier']=self.block_id
         write['contract_address']=search_entry
-        write['from']=collect_subset['from']
+        
+        contract_abi, verdict = self.abi_handler_addr_pos(collect_subset['to'], ETHERSCAN_API)
+
+
         if(contract_abi is None):
             inner={}
             inner['transaction_hash']=collect_subset['hash']
-            inner['contract_address']=collect_subset['to']
+            inner['from']=collect_subset['from']
+            inner['to']= collect_subset['to']
             write['output']=inner
         else:
             func, params = self.decode_input(collect_subset['input'], collect_subset['to'], contract_abi)
             inner={}
             inner['transaction_hash']=collect_subset['hash']
-            inner['contract_address']=collect_subset['to']
+            inner['from']=collect_subset['from']
+            inner['to']= collect_subset['to']
             inner['decoded']={}
             inner['decoded']['function_name']=func.function_identifier
             inner['decoded']['values']=params
             write['output']=inner
         
-        utils.check_dir(f"./output/{DATE}")
-        with open(f"./output/{DATE}/block_id_{self.block_id}_{addr_pos}_contract_addr_{search_entry}_tx_{inner['transaction_hash']}.txt", 'w') as outfile:
+        utils.check_dir(f"./output/{DATE}/tx/")
+        with open(f"./output/{DATE}/tx/block_id_{self.block_id}_{addr_pos}_contract_addr_{search_entry}_tx_{inner['transaction_hash']}.txt", 'w') as outfile:
             json.dump(write, outfile)
         logger.info(f"results (contracts that were calling the target contract) for {self.block_id} and the contract {search_entry} was successfully saved")
 
@@ -194,7 +187,7 @@ class Eth_tracker():
         logger.info(f"results for the contract {search_entry} was successfully saved")
 
 
-    def write_result_trace(self, search_entry, action_subset, contract_abi, blocktrace_subset, addr_pos='to'):
+    def write_result_trace(self, search_entry, action_subset, blocktrace_subset, addr_pos='to', ETHERSCAN_API=None):
         write ={}
         write['block_identifier']=self.block_id
         write['contract_address']=search_entry
@@ -211,7 +204,10 @@ class Eth_tracker():
         inner['transactionHash']=blocktrace_subset['transactionHash']
         inner['transactionPosition']=blocktrace_subset['transactionPosition']
         inner['gasUsed']=blocktrace_subset['result']['gasUsed']
-            
+        
+        contract_abi, verdict = self.abi_handler_addr_pos(action_subset['to'], ETHERSCAN_API)
+
+
         if(contract_abi is None):    
             write['trace']=inner
         else:
@@ -239,8 +235,8 @@ class Eth_tracker():
                     logger.error(f"output could not be decoded. output: {output}  \n tx_hash: {inner['transactionHash']}, skipping the decoding of the output. Error raised : {e}")
                 
             write['trace']=inner
-        utils.check_dir(f"./output/{DATE}")
-        with open(f"./output/{DATE}/block_id_{self.block_id}_to_contract_addr_{search_entry}_trace_index_{action_subset.name}.txt", 'w') as outfile:
+        utils.check_dir(f"./output/{DATE}/traces")
+        with open(f"./output/{DATE}/traces/block_id_{self.block_id}_{addr_pos}_contract_addr_{search_entry}_trace_index_{action_subset.name}.txt", 'w') as outfile:
             json.dump(write, outfile)
         logger.info(f"results (traces that were calling the target contract) for {self.block_id} and the contract {search_entry} was successfully saved")
 
@@ -271,5 +267,17 @@ class Eth_tracker():
         else:
             print(f"Error: {res['message']} Result: {res['result']}")    
             return # contract cannot be initialized with abi (could use function signatures for targeted approach)
-
+    
+    
+    
+    def abi_handler_addr_pos(self, search_addr, ETHERSCAN_API=None):
+            # check if the interacting address is a contract
+        search_addr = Web3.to_checksum_address(search_addr)
+        contract_abi, verdict = self.get_contract_abi(search_addr, ETHERSCAN_API)
+        if(contract_abi is None):
+            logger.error(f"ABI for the contract {search_addr} is not recoverable. Skipping the decoding step")
+        else:
+            logger.info(f"ABI for the contract {search_addr} succefully fetched.")
+        
                 
+        return contract_abi, verdict
