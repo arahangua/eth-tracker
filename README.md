@@ -4,7 +4,7 @@
 
 ```
 ETHERSCAN_API = <your etherscan api key>
-ETH.MAINNET_EXECUTION_RPC = <your rpc provider>
+ETH_MAINNET_EXECUTION_RPC = <your rpc provider>
 ```
 
 
