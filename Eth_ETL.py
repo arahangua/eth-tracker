@@ -182,8 +182,8 @@ class Eth_tracker():
         logger.info(f"results (contracts that were calling the target contract) for {self.block_id} and the contract {search_entry} was successfully saved")
 
     def write_result_addrs(self, search_entry, subset, addr_pos):
-        utils.check_dir(f"./output/{DATE}")
-        subset.to_csv(f"./output/{DATE}/block_id_{self.block_id}_{addr_pos}_contract_addr_{search_entry}.csv", index=False)
+        utils.check_dir(f"./output/{DATE}/addrs")
+        subset.to_csv(f"./output/{DATE}/addrs/block_id_{self.block_id}_{addr_pos}_contract_addr_{search_entry}.csv", index=False)
         logger.info(f"results for the contract {search_entry} was successfully saved")
 
 
