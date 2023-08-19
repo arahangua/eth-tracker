@@ -142,3 +142,6 @@ output/
 
 #git
 .gitignore
+
+#batch job related
+batch_job.txt
