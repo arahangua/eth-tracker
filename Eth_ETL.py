@@ -258,6 +258,7 @@ class Eth_tracker():
 
 
         if res['status'] == '1':
+            utils.check_dir(f"./abis")
             with open(cached_file, 'w') as outfile:
                 json.dump(res['result'], outfile)
                 print('abi saved')

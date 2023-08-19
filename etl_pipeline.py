@@ -15,10 +15,11 @@ def run_job(args, w3, apis):
     BLOCK_ID = args.blocknumber#'17781200'
 
     # check if the addr input was a txt file
-    if('.' in args.addr):
-        parsed = args.addr.split('.')
-        logger.info(f'reading a separate file for the contract list : found a {parsed[-1]} file')
-        CONTRACTS= handle_addr_file(args.addr, parsed[-1])
+    if('.' in args.addr[0]):
+        file_str= args.addr[0]
+        parsed = file_str.split('.')
+        logger.info(f'reading a separate file for contract addresses of interest : found a {parsed[-1]} file')
+        CONTRACTS= handle_addr_file(file_str, parsed[-1])
     else:
         CONTRACTS = args.addr #'0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D' or a list of addresses
     ETHERSCAN_API = apis['ETHERSCAN_API'] 
@@ -111,6 +112,5 @@ def read_txt(file_loc):
 
 def read_csv(file_loc):
     logger.debug(f'for csv files, the script looks for \'address\' column by default')
-
     csv_file = pd.read_csv(file_loc)
     return csv_file['address'].tolist()
