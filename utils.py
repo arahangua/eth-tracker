@@ -38,11 +38,11 @@ class time_handler():
     
     def unixtime_to_blocknum(self, unix_time):
         # binary search
-        low, high = 0, self.w3.eth.blockNumber
+        low, high = 0, self.w3.eth.get_block_number()
 
         while low <= high:
-            mid = (low + high) / 2
-            mid_block_timestamp = self.w3.eth.getBlock(mid).timestamp
+            mid = int((low + high) / 2)
+            mid_block_timestamp = self.w3.eth.get_block(mid).timestamp
 
             if mid_block_timestamp == unix_time:
                 return mid
@@ -55,7 +55,7 @@ class time_handler():
 
 
     def blocknum_to_unixtime(self, blocknum):
-        block = self.w3.eth.getBlock(blocknum)
+        block = self.w3.eth.get_block(blocknum)
         return block.timestamp
 
 
@@ -68,5 +68,11 @@ class time_handler():
         return int(dt.timestamp())
 
 
+    def datetime_to_blocknum(self, date_string):
+        ts = self.datetime_to_unixtime(date_string)
+        bn = self.unixtime_to_blocknum(ts)
+        return bn
+    
+    
 
 

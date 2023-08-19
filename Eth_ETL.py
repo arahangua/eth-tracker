@@ -16,14 +16,14 @@ DATE = now.strftime('%d%m%y')
 logger = logging.getLogger(__name__)
 
 class Eth_tracker():
-    def __init__(self, web3_instance, block_id, contract):
+    def __init__(self, web3_instance, block_id, contracts):
         self.w3 = web3_instance
         try:
             block_id = int(block_id)
         except:
             pass
         self.block_id = block_id
-        self.contract = contract
+        self.contracts = contracts
         logger.info('eth etl class initialized')
 
     def fetch_blockinfo(self):
@@ -88,46 +88,46 @@ class Eth_tracker():
     
 ### finding interacting contracts(traces)  + input data
     def find_interacting_traces(self, actions, blocktrace, ETHERSCAN_API=None, addr_pos='to'):
-        search_entry = self.contract
-        logger.info(f'searching for contract {search_entry} in {addr_pos} position')
-        # find contracts calling the target contract
-        index = actions.loc[actions['to']==search_entry.lower()].index
-        if(len(index)):
-            logger.info(f"{len(index)} match(es) was(were) found for the contract {search_entry}")
-            for ind in index:    
-                self.write_result_trace(search_entry, actions.iloc[ind,:], blocktrace[ind], addr_pos, ETHERSCAN_API=ETHERSCAN_API)
-                
-        else:
-            logger.info(f"no traces were calling the contract {search_entry}")
-        
+        for search_entry in self.contracts:
+            logger.info(f'searching for contract {search_entry} in {addr_pos} position')
+            # find contracts calling the target contract
+            index = actions.loc[actions['to']==search_entry.lower()].index
+            if(len(index)):
+                logger.info(f"{len(index)} match(es) was(were) found for the contract {search_entry}")
+                for ind in index:    
+                    self.write_result_trace(search_entry, actions.iloc[ind,:], blocktrace[ind], addr_pos, ETHERSCAN_API=ETHERSCAN_API)
+                    
+            else:
+                logger.info(f"no traces were calling the contract {search_entry}")
+            
             
 ### finding interacting contracts + input data
     def find_interacting_contracts(self, collect, ETHERSCAN_API=None, addr_pos='to'):
-        search_entry = self.contract
-        logger.info(f'searching for contract {search_entry} in {addr_pos} position')
-        # find contracts calling the target contract
-        subset = collect.loc[collect[addr_pos]==search_entry]
-        if(len(subset)):
-            logger.info(f"{len(subset)} match(es) was(were) found for the contract {search_entry}")
-            # check if the interacting address is a contract
-            for ind in range(len(subset)):
-                self.write_result_tx(search_entry, subset.iloc[ind,:], addr_pos, ETHERSCAN_API=ETHERSCAN_API)
-                
-        else:
-            logger.info(f"no contracts were calling the contract {search_entry}")
+        for search_entry in self.contracts:
+            logger.info(f'searching for contract {search_entry} in {addr_pos} position')
+            # find contracts calling the target contract
+            subset = collect.loc[collect[addr_pos]==search_entry]
+            if(len(subset)):
+                logger.info(f"{len(subset)} match(es) was(were) found for the contract {search_entry}")
+                # check if the interacting address is a contract
+                for ind in range(len(subset)):
+                    self.write_result_tx(search_entry, subset.iloc[ind,:], addr_pos, ETHERSCAN_API=ETHERSCAN_API)
+                    
+            else:
+                logger.info(f"no contracts were calling the contract {search_entry}")
 
 
 ### finding interacting contracts adresses (no input data)
     def find_interacting_addrs(self, collect, addr_pos='to'):
-        search_entry = self.contract
-        logger.info(f'searching for contract {search_entry} in {addr_pos} position')
-        subset = collect.loc[collect[addr_pos]==search_entry]
-        if(len(subset)):
-            logger.info(f"{len(subset)} match(es) was(were) found for the contract {search_entry}")
-            subset = subset[['hash', 'from', 'to']]
-            self.write_result_addrs(search_entry, subset, addr_pos)
-        else:
-            logger.info(f"no interacting addresses were found for the contract {search_entry}")
+        for search_entry in self.contracts:
+            logger.info(f'searching for contract {search_entry} in {addr_pos} position')
+            subset = collect.loc[collect[addr_pos]==search_entry]
+            if(len(subset)):
+                logger.info(f"{len(subset)} match(es) was(were) found for the contract {search_entry}")
+                subset = subset[['hash', 'from', 'to']]
+                self.write_result_addrs(search_entry, subset, addr_pos)
+            else:
+                logger.info(f"no interacting addresses were found for the contract {search_entry}")
 
 
 

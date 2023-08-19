@@ -12,7 +12,7 @@ def run_job(args, w3, apis):
     
 
     BLOCK_ID = args.blocknumber#'17781200'
-    CONTRACTS = args.addr #'0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D'
+    CONTRACTS = args.addr #'0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D' or a list of addresses
     ETHERSCAN_API = apis['ETHERSCAN_API'] 
     RPC_PROVIDER = apis['RPC_PROVIDER'] 
 
