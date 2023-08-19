@@ -30,6 +30,7 @@ class Eth_tracker():
 
         blockinfo = self.w3.eth.get_block(self.block_id)
         logger.info(f'block fetched, block id: {self.block_id}')
+        # print(blockinfo)
         
         return blockinfo
         
@@ -60,9 +61,13 @@ class Eth_tracker():
         for tx_hash in tx_hashes:
             summary ={}
             tx = self.w3.eth.get_transaction(tx_hash)
+            # print(tx)
             for key in collect_keys:
                 if(key=='hash'):
                     summary[key]=tx[key].hex()
+                elif((key=='to') & (key not in tx.keys())):
+                    logger.info(f'found a contract creation event for tx(hash) : {tx_hash.hex()}')
+                    summary[key]='contract_created'
                 else:
                     summary[key]=tx[key]
             
