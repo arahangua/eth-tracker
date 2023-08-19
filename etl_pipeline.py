@@ -1,6 +1,7 @@
 import os,sys
 from Eth_ETL import Eth_tracker 
 import logging
+import pandas as pd
 
 
 logger = logging.getLogger(__name__)
@@ -12,7 +13,14 @@ def run_job(args, w3, apis):
     
 
     BLOCK_ID = args.blocknumber#'17781200'
-    CONTRACTS = args.addr #'0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D' or a list of addresses
+
+    # check if the addr input was a txt file
+    if('.' in args.addr):
+        parsed = args.addr.split('.')
+        logger.info(f'reading a separate file for the contract list : found a {parsed[-1]} file')
+        CONTRACTS= handle_addr_file(args.addr, parsed[-1])
+    else:
+        CONTRACTS = args.addr #'0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D' or a list of addresses
     ETHERSCAN_API = apis['ETHERSCAN_API'] 
     RPC_PROVIDER = apis['RPC_PROVIDER'] 
 
@@ -84,3 +92,25 @@ def run_job(args, w3, apis):
     else:
         print("Please specify a valid job alias.")
        
+def handle_addr_file(file_loc, ext):
+    if(ext=='txt'):
+        return read_txt(file_loc)
+    elif(ext=='csv'):
+        return read_csv(file_loc)
+    else:
+        logger.error(f"extension: {ext} is not yet implemented for reading-in contract addresses")
+
+def read_txt(file_loc):
+    with open(file_loc, 'r') as read_file:    
+        lines = read_file.readlines()
+
+    # Remove any trailing newline characters from each line
+    lines = [line.strip() for line in lines]
+    return lines 
+
+
+def read_csv(file_loc):
+    logger.debug(f'for csv files, the script looks for \'address\' column by default')
+
+    csv_file = pd.read_csv(file_loc)
+    return csv_file['address'].tolist()
