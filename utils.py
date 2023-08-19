@@ -1,6 +1,8 @@
 import os,sys
 import json
 from decimal import Decimal
+import datetime
+
 
 def convert_to_decimal(obj):
     if isinstance(obj, dict):
@@ -23,3 +25,48 @@ def convert_to_decimal(obj):
 def check_dir(path):
     if(not(os.path.exists(path))):
         os.makedirs(path)
+
+
+### handling times
+
+class time_handler():
+    def __init__(self, w3):
+        self.w3 = w3
+        assert self.w3.is_connected(), 'please check rpc provider configuration, web3 connection is not established'
+
+
+    
+    def unixtime_to_blocknum(self, unix_time):
+        # binary search
+        low, high = 0, self.w3.eth.blockNumber
+
+        while low <= high:
+            mid = (low + high) / 2
+            mid_block_timestamp = self.w3.eth.getBlock(mid).timestamp
+
+            if mid_block_timestamp == unix_time:
+                return mid
+            elif mid_block_timestamp < unix_time:
+                low = mid + 1
+            else:
+                high = mid - 1
+
+        return high  # Return the closest preceding block number
+
+
+    def blocknum_to_unixtime(self, blocknum):
+        block = self.w3.eth.getBlock(blocknum)
+        return block.timestamp
+
+
+    def unixtime_to_datetime(self, unix_timestamp):
+        dt = datetime.datetime.utcfromtimestamp(unix_timestamp)
+        return dt.strftime('%d%m%y')
+    
+    def datetime_to_unixtime(self, date_string):
+        dt = datetime.datetime.strptime(date_string, '%d%m%y')
+        return int(dt.timestamp())
+
+
+
+
