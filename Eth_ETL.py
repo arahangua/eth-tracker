@@ -373,6 +373,7 @@ class Eth_tracker():
                 logger.error(f"returned logs were empty for address : {search_addr}")
             else:
                 blocks_of_int = blocks_of_int + target_blocks
+                blocks_of_int = list(set(blocks_of_int))
         if(args.save_blocklist):
             self.save_interim_filter_res(blocks_of_int, CONTRACTS_BK, args)
         
