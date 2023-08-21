@@ -7,6 +7,7 @@ import hexbytes
 import utils
 import datetime 
 from web3 import Web3
+import hashlib
 
 now = datetime.datetime.now()
 # Format the date to 'day-month-year'
@@ -288,3 +289,112 @@ class Eth_tracker():
                 
         return contract_abi, verdict
     
+
+    def get_blocks_filter(self, args, search_addr):
+        # check if its in checksum address
+        search_addr = Web3.to_checksum_address(search_addr) 
+        filter_params = self.make_filter(args, search_addr)
+        #get logs
+        logs = self.w3.eth.get_logs(filter_params)
+        if(len(logs)>0):
+            logger.info(f'got filter logs for the address : {search_addr}')
+            # get target blocks
+            target_blocks = self.extract_blocks_from_logs(logs)
+            return target_blocks
+        else:
+            logger.error(f'returned logs were empty')
+            return None
+
+
+    def extract_blocks_from_logs(self, logs):
+        blocks=[]
+        for log in logs:
+            blocks.append(log['blockNumber'])
+        blocks = list(set(blocks))
+        return blocks
+        
+        
+
+        
+    def make_filter(self, args, search_addr):
+        return {'fromBlock': int(args.start_block), 'toBlock': int(args.end_block), 'address': search_addr}
+        
+    def save_interim_filter_res(self, blocks_of_int, CONTRACTS_BK, args):
+        hashed = self.get_hash_of_list(CONTRACTS_BK)
+        interim_fol = f'./output/{args.start_block}_{args.end_block}/{hashed}/filter_intermediate'
+        utils.check_dir(interim_fol)
+        with open(f'{interim_fol}/target_blocks.json', 'w') as f:
+            json.dump(blocks_of_int, f)
+        logger.info('block list saved in the intermediate folder')
+        with open(f'{interim_fol}/used_addrs.json', 'w') as f:
+            json.dump(CONTRACTS_BK, f)
+        logger.info('matching contract list saved in the intermediate folder')
+        
+        
+    def get_hash_of_list(self, some_list):
+        list_str = str(some_list).encode('utf-8')
+        hash_object = hashlib.sha256(list_str)
+        hex_dig = hash_object.hexdigest()
+        return hex_dig
+
+
+    def get_target_blocks(self, CONTRACTS_BK, args):
+        # check if its cached
+        hashed = self.get_hash_of_list(CONTRACTS_BK)
+        cache_loc = f'./output/{args.start_block}_{args.end_block}/{hashed}/filter_intermediate/used_addrs.json'
+        if(os.path.exists(cache_loc)):
+
+            with open(cache_loc, 'r') as f:
+                cache_contracts = json.load(f)
+                cache_hashed = self.get_hash_of_list(cache_contracts)
+
+            if(hashed==cache_hashed):
+                logger.info('found previous cached data for valid blocklist')
+                bl_list_loc = f'./output/{args.start_block}_{args.end_block}/filter_intermediate/target_blocks.json'
+                with open(bl_list_loc, 'r') as f:
+                    blocks_of_int = json.load(f)
+            else: 
+                blocks_of_int = self.collect_blocks(CONTRACTS_BK, args)
+
+        else:
+            blocks_of_int = self.collect_blocks(CONTRACTS_BK, args)
+            
+        
+        return blocks_of_int
+    
+
+    def collect_blocks(self, CONTRACTS_BK, args):
+        logger.info('no cached blocklist exists for the ')
+        blocks_of_int= []
+        for search_addr in CONTRACTS_BK:
+            logger.info(f'applying a filter for the address : {search_addr}')
+            target_blocks = self.get_blocks_filter(args, search_addr)
+            if(target_blocks is None):
+                logger.error(f"returned logs were empty for address : {search_addr}")
+            else:
+                blocks_of_int = blocks_of_int + target_blocks
+        if(args.save_blocklist):
+            self.save_interim_filter_res(blocks_of_int, CONTRACTS_BK, args)
+        
+        return blocks_of_int 
+
+#below for debugging purpose
+'''
+import argparse
+filter_parser = argparse.ArgumentParser()
+filter_parser.add_argument("--job_name", "-jn", type=str, required=True, help="job to run for each match in the filter. check help (-h) instructions")
+filter_parser.add_argument("--start_block", "-sb", type=str, required=True, help="starting blocknumber")
+filter_parser.add_argument("--end_block", '-eb', type=str, required=True, help="ending blocknumber")
+filter_parser.add_argument("--addr", "-a", type=str, nargs='+', required=True,help="Contract address of interest")
+filter_parser.add_argument("--job_id", "-j", type=str, default='0', help="job id for running multiple jobs")
+
+# Manually create the args variable
+args = argparse.Namespace(job_name='contracts_to', start_block='17594916',end_block = '17595016', addr=['0x5a98fcbea516cf06857215779fd812ca3bef1b32'], job_id='0')
+
+search_addr = Web3.to_checksum_address(args.addr[0])
+'''
+    
+
+
+     
+

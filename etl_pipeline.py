@@ -3,7 +3,6 @@ from Eth_ETL import Eth_tracker
 import logging
 import pandas as pd
 
-
 logger = logging.getLogger(__name__)
 
 def run_job(args, w3, apis):
@@ -11,8 +10,10 @@ def run_job(args, w3, apis):
     # BLOCK_ID = '17781200'
     # CONTRACTS = '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D'
     
-
-    BLOCK_ID = args.blocknumber#'17781200'
+    if hasattr(args,'blocknumber'):
+        BLOCK_ID = args.blocknumber#'17781200'
+    else:
+        BLOCK_ID = args.start_block
 
     # check if the addr input was a txt file
     if('.' in args.addr[0]):
@@ -90,6 +91,22 @@ def run_job(args, w3, apis):
         eth.find_interacting_traces(actions, blocktrace, ETHERSCAN_API=ETHERSCAN_API, addr_pos='to')
 
 
+    elif args.job=="apply_filter":
+        logger.info(f"Applying a filter in the block range of start_block : {args.start_block}, end_block : {args.end_block}. Running {args.job_name} task for contract(s) : {args.addr}")
+        #apply filter and get matching entries
+        # for each addr
+        CONTRACTS_BK = CONTRACTS # backing up CONTRACTS global variable as we will be calling run_job function with modifed args.
+        
+        # collect blocks and save interim blocklist with the matching contract addrs
+        target_blocks = eth.get_target_blocks(CONTRACTS_BK, args)
+
+        for block in target_blocks:
+            logger.info(f'fetching block : {block}, running job: {args.job_name}')
+            args.job=args.job_name
+            logger.info(f'calling run_job function for job mode : {args.job_name}')
+            args.blocknumber = block
+            run_job(args, w3, apis)
+
     else:
         print("Please specify a valid job alias.")
        
@@ -114,3 +131,4 @@ def read_csv(file_loc):
     logger.debug(f'for csv files, the script looks for \'address\' column by default')
     csv_file = pd.read_csv(file_loc)
     return csv_file['address'].tolist()
+
