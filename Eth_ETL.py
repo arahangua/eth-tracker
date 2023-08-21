@@ -350,7 +350,7 @@ class Eth_tracker():
 
             if(hashed==cache_hashed):
                 logger.info('found previous cached data for valid blocklist')
-                bl_list_loc = f'./output/{args.start_block}_{args.end_block}/filter_intermediate/target_blocks.json'
+                bl_list_loc = f'./output/{args.start_block}_{args.end_block}/{hashed}/filter_intermediate/target_blocks.json'
                 with open(bl_list_loc, 'r') as f:
                     blocks_of_int = json.load(f)
             else: 
