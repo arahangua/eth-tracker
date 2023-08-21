@@ -107,8 +107,24 @@ def run_job(args, w3, apis):
             args.blocknumber = block
             run_job(args, w3, apis)
 
+    elif args.job=='get_logs':
+        logger.info(f"Applying a filter in the block range of start_block : {args.start_block}, end_block : {args.end_block}. getting logs for contract(s) : {args.addr}")
+        #apply filter and get matching entries
+        # for each addr
+        CONTRACTS_BK = CONTRACTS # backing up CONTRACTS global variable as we will be calling run_job function with modifed args.        
+        # collect logs and save interim result
+        eth.get_target_logs(CONTRACTS_BK, args)
+
+
+    
+
     else:
         print("Please specify a valid job alias.")
+
+
+
+
+#########################################################################################################
        
 def handle_addr_file(file_loc, ext):
     if(ext=='txt'):

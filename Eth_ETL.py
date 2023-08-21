@@ -304,6 +304,21 @@ class Eth_tracker():
         else:
             logger.error(f'returned logs were empty')
             return None
+        
+    def get_logs_filter(self, args, search_addr):
+        # check if its in checksum address
+        search_addr = Web3.to_checksum_address(search_addr) 
+        filter_params = self.make_filter(args, search_addr)
+        #get logs
+        logs = self.w3.eth.get_logs(filter_params)
+        if(len(logs)>0):
+            logger.info(f'got filter logs for the address : {search_addr}')
+            # get target blocks
+            formatted = self.format_logs(logs)
+            return formatted
+        else:
+            logger.error(f'returned logs were empty')
+            return None
 
 
     def extract_blocks_from_logs(self, logs):
@@ -312,6 +327,32 @@ class Eth_tracker():
             blocks.append(log['blockNumber'])
         blocks = list(set(blocks))
         return blocks
+    
+    def format_logs(self, logs):
+        
+        # Convert AttributeDict to regular dict and HexBytes to string
+        converted_data = []
+        for entry in logs:
+            inner = {}
+            for key, value in entry.items():
+                if(isinstance(value, hexbytes.HexBytes)):
+                    inner[key] = str(value.hex())
+                elif(isinstance(value, list)):
+                    for ii, val in enumerate(value):
+                        if(isinstance(val, hexbytes.HexBytes)):
+                            value[ii] = str(val.hex())
+                        else:
+                            value[ii] = str(val)
+                    inner[key] = value
+                
+                else:
+                    inner[key]= value
+            converted_data.append(inner)
+
+        # Convert to DataFrame
+        df = pd.DataFrame(converted_data)
+        return df
+    
         
         
 
@@ -362,9 +403,49 @@ class Eth_tracker():
         
         return blocks_of_int
     
+    def get_target_logs(self, CONTRACTS_BK, args):
+        for search_addr in CONTRACTS_BK:
+            logger.info(f'getting logs for the address : {search_addr}, starting block : {args.start_block} ending block : {args.end_block}')
+            # check if its cached
+            cache_root = f'./output/{args.start_block}_{args.end_block}/logs'
+            cache_file = f'{cache_root}/{search_addr}.csv'
+            
+            if(os.path.exists(cache_file)):
+                logger.info(f'logs for the address : {search_addr} was already exported for the given block range')
+                
+            else:
+                target_logs = self.get_logs_filter(args, search_addr)
+                
+                if(target_logs is not None):
+                    logger.info(f'found {len(target_logs)} log entries for addr : {search_addr}')
+                    utils.check_dir(cache_root)
+                    target_logs.to_csv(cache_file, index=False)
+                    logger.info(f'exporting done.')
+                    
+                else:
+                    logger.error(f'no logs were found for the given range of blocks')
+    
+            
+    
+    
+    def collect_logs(self, CONTRACTS_BK, args):
+        logger.info('no cached logs exists for the current job')
+        logs = []
+        for search_addr in CONTRACTS_BK:
+            logger.info(f'applying a filter for the address : {search_addr}')
+            target_blocks = self.get_blocks_filter(args, search_addr)
+            if(target_blocks is None):
+                logger.error(f"returned logs were empty for address : {search_addr}")
+            else:
+                blocks_of_int = blocks_of_int + target_blocks
+                blocks_of_int = list(set(blocks_of_int))
+        if(args.save_blocklist):
+            self.save_interim_filter_res(blocks_of_int, CONTRACTS_BK, args)
+        
+        return blocks_of_int 
 
     def collect_blocks(self, CONTRACTS_BK, args):
-        logger.info('no cached blocklist exists for the ')
+        logger.info(f'no cached blocklist exists for the current job')
         blocks_of_int= []
         for search_addr in CONTRACTS_BK:
             logger.info(f'applying a filter for the address : {search_addr}')
