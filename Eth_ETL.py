@@ -421,7 +421,6 @@ class Eth_tracker():
                     utils.check_dir(cache_root)
                     target_logs.to_csv(cache_file, index=False)
                     logger.info(f'exporting done.')
-                    
                 else:
                     logger.error(f'no logs were found for the given range of blocks')
     
@@ -469,9 +468,18 @@ filter_parser.add_argument("--start_block", "-sb", type=str, required=True, help
 filter_parser.add_argument("--end_block", '-eb', type=str, required=True, help="ending blocknumber")
 filter_parser.add_argument("--addr", "-a", type=str, nargs='+', required=True,help="Contract address of interest")
 filter_parser.add_argument("--job_id", "-j", type=str, default='0', help="job id for running multiple jobs")
-
-# Manually create the args variable
 args = argparse.Namespace(job_name='contracts_to', start_block='17594916',end_block = '17595016', addr=['0x5a98fcbea516cf06857215779fd812ca3bef1b32'], job_id='0')
+
+
+
+filter_parser = argparse.ArgumentParser()
+filter_parser.add_argument("--start_block", "-sb", type=str, required=True, help="starting blocknumber")
+filter_parser.add_argument("--end_block", '-eb', type=str, required=True, help="ending blocknumber")
+filter_parser.add_argument("--addr", "-a", type=str, nargs='+', required=True,help="Contract address of interest")
+filter_parser.add_argument("--job_id", "-j", type=str, default='0', help="job id for running multiple jobs")
+
+args = argparse.Namespace(start_block='17594916',end_block = '17595016', addr=['valid_eth_protocols.csv'])
+
 
 search_addr = Web3.to_checksum_address(args.addr[0])
 '''
