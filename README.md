@@ -30,7 +30,7 @@ positional arguments:
     txs_from            export transactions that were from the input contract
     traces_from         export traces of transactions that were from the input contract
     apply_filter        apply filter on the range of blocknumber to query addrs/transactions/traces
-    get_logs            apply filter on the range of blocknumber to query addrs/transactions/traces
+    get_logs            apply filter on the range of blocknumber to get event logs
 
 options:
   -h, --help            show this help message and exit
