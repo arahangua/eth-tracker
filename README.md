@@ -1,6 +1,6 @@
 # eth-tracker
 
-1. setup .env file
+**1. setup .env file**
 
 ```
 ETHERSCAN_API = <your etherscan api key>
@@ -8,7 +8,7 @@ ETH_MAINNET_EXECUTION_RPC = <your rpc provider>
 ```
 
 
-2. run command to see implemented functions
+**2. run command to see implemented functions**
 
 ```
 python main.py -h
@@ -36,9 +36,9 @@ options:
   -h, --help            show this help message and exit
 ```
 
-3. Batch jobs / multiprocessing
+**3. Batch jobs / multiprocessing**
 
-Create "batch_jobs.txt" with each line corresponding to ETL jobs (see above) in the project folder (check subprocess_handler.py)
+Create "batch_jobs.txt" with each line corresponding to ETL job (see above)(check subprocess_handler.py)
 Open subproecss_handler.py and change job parameters (e.g., set process_n = <number of process>)
 then run
 ```
