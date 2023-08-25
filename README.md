@@ -38,8 +38,8 @@ options:
 
 **3. Batch jobs / multiprocessing**
 
-Create "batch_jobs.txt" with each line corresponding to ETL job (see above)(check subprocess_handler.py)
-Open subproecss_handler.py and change job parameters (e.g., set process_n = <number of process>)
+Create "batch_jobs.txt" with each line corresponding to ETL job (see above)(check subprocess_handler.py) <br>
+Open subproecss_handler.py and change job parameters (e.g., set process_n = 30) <br>
 then run
 ```
 python subprocess_handler.py
