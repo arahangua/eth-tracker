@@ -407,7 +407,7 @@ class Eth_tracker():
         for search_addr in CONTRACTS_BK:
             logger.info(f'getting logs for the address : {search_addr}, starting block : {args.start_block} ending block : {args.end_block}')
             # check if its cached
-            cache_root = f'./output/{args.start_block}_{args.end_block}/logs'
+            cache_root = f'./output/{DATE}/{args.start_block}_{args.end_block}/logs'
             cache_file = f'{cache_root}/{search_addr}.csv'
             
             if(os.path.exists(cache_file)):
