@@ -29,7 +29,7 @@ def run_job(args, w3, apis):
 
 
     # initialize custom class
-    eth = Eth_tracker(w3, BLOCK_ID, CONTRACTS)
+    eth = Eth_tracker(w3, BLOCK_ID, CONTRACTS, apis)
 
     if args.job == "contracts_from":
         logger.info(f"extracting contracts that gets called from the input contract {args.addr} in block {args.blocknumber}")
@@ -110,10 +110,16 @@ def run_job(args, w3, apis):
     elif args.job=='get_logs':
         logger.info(f"Applying a filter in the block range of start_block : {args.start_block}, end_block : {args.end_block}. getting logs for contract(s) : {args.addr}")
         #apply filter and get matching entries
-        # for each addr
         CONTRACTS_BK = CONTRACTS # backing up CONTRACTS global variable as we will be calling run_job function with modifed args.        
         # collect logs and save interim result
         eth.get_target_logs(CONTRACTS_BK, args)
+
+    elif args.job=='trace_filter':
+        logger.info(f"Applying a trace filter in the block range of start_block : {args.start_block}, end_block : {args.end_block}. getting traces for contract(s) : {args.addr}")
+        #apply filter and get matching entries
+        CONTRACTS_BK = CONTRACTS # backing up CONTRACTS global variable as we will be calling run_job function with modifed args.        
+        # collect traces and save interim result
+        eth.get_traces_from_filter(CONTRACTS_BK, args)
 
 
     

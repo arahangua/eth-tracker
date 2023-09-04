@@ -1,3 +1,5 @@
+# %reload_ext autoreload
+# %autoreload 2
 import os, sys
 import logging
 from dotenv import load_dotenv
@@ -11,7 +13,7 @@ load_dotenv()
 apis = {}
 apis['ETHERSCAN_API'] = os.getenv('ETHERSCAN_API')
 apis['RPC_PROVIDER'] = os.getenv('ETH_MAINNET_EXECUTION_RPC') # change this part for other EVM compatible rpc endpoints (*make sure if the downstream application is compatible regarding Etherscan side)
-
+apis['PUBLIC_LIBRARY'] = os.getenv('PUBLIC_LIBRARY')
 
 #configure w3 connection
 w3 = Web3(Web3.HTTPProvider(apis['RPC_PROVIDER']))
@@ -21,7 +23,7 @@ assert w3.is_connected(), 'please check rpc provider configuration, web3 connect
 args = get_args()
 
 # Configure logging
-logging.basicConfig(filename=f'eth_etl_{args.job_id}.log', level=logging.INFO, format='%(asctime)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S', filemode='w')
+logging.basicConfig(filename=f'./logs/eth_etl_{args.job_id}.log', level=logging.INFO, format='%(asctime)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S', filemode='w')
 # for terminal outputs
 sh = logging.StreamHandler()
 formatter = logging.Formatter('%(asctime)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S')

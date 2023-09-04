@@ -8,6 +8,7 @@ import utils
 import datetime 
 from web3 import Web3
 import hashlib
+import eth_abi 
 
 now = datetime.datetime.now()
 # Format the date to 'day-month-year'
@@ -17,7 +18,7 @@ DATE = now.strftime('%d%m%y')
 logger = logging.getLogger(__name__)
 
 class Eth_tracker():
-    def __init__(self, web3_instance, block_id, contracts):
+    def __init__(self, web3_instance, block_id, contracts, apis):
         self.w3 = web3_instance
         try:
             block_id = int(block_id)
@@ -25,6 +26,7 @@ class Eth_tracker():
             pass
         self.block_id = block_id
         self.contracts = contracts
+        self.apis = apis
         logger.info('eth etl class initialized')
 
     def fetch_blockinfo(self):
@@ -282,11 +284,8 @@ class Eth_tracker():
         search_addr = Web3.to_checksum_address(search_addr)
         contract_abi, verdict = self.get_contract_abi(search_addr, ETHERSCAN_API)
         if(contract_abi is None):
-            logger.error(f"ABI for the contract {search_addr} is not recoverable. Skipping the decoding step")
-        else:
-            logger.info(f"ABI for the contract {search_addr} succefully fetched.")
-        
-                
+            logger.error(f"ABI for the contract {search_addr} is not recoverable.")
+            
         return contract_abi, verdict
     
 
@@ -305,7 +304,7 @@ class Eth_tracker():
             logger.error(f'returned logs were empty')
             return None
         
-    def get_logs_filter(self, args, search_addr):
+    def _get_logs_filter(self, args, search_addr):
         # check if its in checksum address
         search_addr = Web3.to_checksum_address(search_addr) 
         filter_params = self.make_filter(args, search_addr)
@@ -414,7 +413,7 @@ class Eth_tracker():
                 logger.info(f'logs for the address : {search_addr} was already exported for the given block range')
                 
             else:
-                target_logs = self.get_logs_filter(args, search_addr)
+                target_logs = self._get_logs_filter(args, search_addr)
                 
                 if(target_logs is not None):
                     logger.info(f'found {len(target_logs)} log entries for addr : {search_addr}')
@@ -458,27 +457,212 @@ class Eth_tracker():
             self.save_interim_filter_res(blocks_of_int, CONTRACTS_BK, args)
         
         return blocks_of_int 
+    
+
+    def make_trace_filter_params(self, args, search_addr):
+        if(isinstance(search_addr,list)):
+            logger.info('applying trace filter using multiple addresses')
+
+            search_list = search_addr
+        else:
+            search_list = list({search_addr})
+        
+        # setting param for the right position
+        if(args.pos=='to'):
+            pos_arg = "toAddress"
+             
+        elif(args.pos=='from'):
+            pos_arg = "fromAddress"
+
+        else:
+            logger.error("invalid pos argument. Please check if the pos argument is one of \"to\" or \"from\"")
+        return_val =  [
+                {
+                "fromBlock": f"{hex(int(args.start_block))}",
+                "toBlock": f"{hex(int(args.end_block))}",
+                pos_arg: search_list
+                }
+            ]
+    
+        return return_val
+    # by heuristic, querying up until ~100 blocks is possible for the default server-side timeout (timeout=5s, Alchemy)
+    def send_trace_filter_req(self, args, search_addr):
+        url = f"{self.apis['RPC_PROVIDER']}"
+        
+        req={
+                "id": 1,
+                "jsonrpc": "2.0",
+                "method": "trace_filter",
+                "params": self.make_trace_filter_params(args, search_addr)
+                  
+                }
+
+        response = requests.post(url, json= req) 
+        if response.status_code == 200:
+            data = response.json()
+            if ('result' in data and len(data['result']) > 0):
+                length = len(data['result'])
+                logger.info(f'fetched {length} traces')
+                return data['result']
+        
+        logger.info(f'no traces were found for the search range : {args.start_block} - {args.end_block}')
+        return None
+        
+    def format_traces(self, traces):
+        collect = pd.DataFrame()
+        for tr in traces:
+            tx = {}
+
+            # actions
+            action = tr['action']
+            for k,v in action.items():
+                tx[k] = v
+            
+            tx['blockHash'] = tr['blockHash']
+            tx['blockNumber'] = tr['blockNumber']
+            tx['gasUsed'] = tr['result']['gasUsed']
+            tx['output'] = tr['result']['output']
+            tx['subtraces']= tr['subtraces']
+            tx['traceAddress']= tr['traceAddress']
+            tx['transactionPosition'] = tr['transactionPosition']
+            tx['type'] = tr['type']
+
+
+            # try to decipher inputs 
+            decoded, abi_exists = self.decoding_handler(tx['to'], tx['input'])
+
+            tx['decoded'] = decoded
+            tx['abi'] = abi_exists
+
+            tx_df = pd.DataFrame([tx])
+            collect = pd.concat([collect, tx_df])
+        
+        #reset index
+        collect = collect.reset_index(drop=True)
+
+        return collect
+
+
+    def decoding_handler(self, contract_addr, hex_input:str):
+        contract_addr = Web3.to_checksum_address(contract_addr) 
+
+        # first check if ABI exists on Etherscan
+        contract_abi, verdict = self.abi_handler_addr_pos(contract_addr, self.apis['ETHERSCAN_API'])
+        
+        # params (will be None except we have a matching ABI)
+        abi_exists = 0
+        # try to decode the input using ABI
+        if(verdict=='contract'):
+            if(len(hex_input)>2): #handling null and 0x
+                if(contract_abi is None):
+                    logger.info(f'fetching ABI failed. Trying to query public byte library')
+                    # get first 8 hex digits (4 bytes) + 2 (0x)
+                    hex_signature = hex_input[:10] 
+                    text_signature = self.query_public_library(hex_signature)
+                    if(text_signature is None):
+                        logger.error(f'input hex : {hex_signature} was not found in the public library. Input cannot be decoded')
+                        decoded = hex_signature
+                    else: 
+                        # WIP for further decoding the input using the text_signature
+                        # parsed_dtypes = self.parse_dtypes(text_signature)
+                        # hex_data = bytes.fromhex(hex_input)
+                        # decodedABI = eth_abi.abi.decode(parsed_dtypes, hex_data)
+                        decoded = text_signature
+                
+                else: # in case we have a matching ABI
+                    func, params = self.decode_input(hex_input, contract_addr, contract_abi)
+                    # return decoded input
+                    decoded = func.function_identifier
+                    abi_exists = 1 # here we deliberately ignore decoded params for better batch-level analysis downstream by just flagging existence of ABI.
+            # fallback function
+            else:
+                logger.info(f'probably a fallback function getting called')
+                decoded = 'fallback'
+        else:
+            # for cases where it was an ether transfer or a contract creation
+
+            logger.info(f'\'to\' address was not a contract')
+            if(len(hex_input)>2):
+                logger.info(f'possible contract creation')
+                decoded = 'contract creation'
+            else:
+                logger.info(f'simple ether transfer')
+                decoded = 'ether transfer'
+
+
+        return  decoded, abi_exists
+
+
+        
+    def _get_traces_filter(self, args, search_addr):
+        # check if its in checksum address
+        search_addr = Web3.to_checksum_address(search_addr) 
+        # get traces
+        traces = self.send_trace_filter_req(args, search_addr)
+        if(len(traces)>0):
+            logger.info(f'fomatting filter traces for the address : {search_addr}')
+            # get target blocks
+            formatted = self.format_traces(traces)
+            return formatted
+        else:
+            # no trace was found.
+            return None
+
+    def query_public_library(self, hex_signature):
+        url = f"https://www.4byte.directory/api/v1/signatures/?hex_signature={hex_signature}"
+        
+        response = requests.get(url)
+        if response.status_code == 200:
+            data = response.json()
+            if 'results' in data and len(data['results']) > 0:
+                logger.info(f'fetched function/event signature for the hex signature : {hex_signature}')
+                return data['results'][0]['text_signature']
+        logger.info(f'no matching text signature for {hex_signature}')
+        return None
+    
+
+
+
+    def get_traces_from_filter(self, CONTRACTS_BK, args):
+        for search_addr in CONTRACTS_BK:
+            logger.info(f'getting traces for the address : {search_addr}, starting block : {args.start_block} ending block : {args.end_block} at {args.pos} position')
+            # check if its cached
+            cache_root = f'./output/{DATE}/{args.start_block}_{args.end_block}/traces'
+            cache_file = f'{cache_root}/{search_addr}.csv'
+            
+            if(os.path.exists(cache_file)):
+                logger.info(f'traces for the address : {search_addr} was already exported for the given block range')
+                
+            else:
+                target_traces = self._get_traces_filter(args, search_addr)
+                
+                if(target_traces is not None):
+                    logger.info(f'found {len(target_traces)} log entries for addr : {search_addr}')
+                    utils.check_dir(cache_root)
+                    target_traces.to_csv(cache_file, index=False)
+                    logger.info(f'exporting done.')
+                else:
+                    logger.error(f'no logs were found for the given range of blocks')
+    
+
 
 #below for debugging purpose
 '''
 import argparse
+
 filter_parser = argparse.ArgumentParser()
-filter_parser.add_argument("--job_name", "-jn", type=str, required=True, help="job to run for each match in the filter. check help (-h) instructions")
+# traces by applying filters (2k range limit) 
 filter_parser.add_argument("--start_block", "-sb", type=str, required=True, help="starting blocknumber")
 filter_parser.add_argument("--end_block", '-eb', type=str, required=True, help="ending blocknumber")
 filter_parser.add_argument("--addr", "-a", type=str, nargs='+', required=True,help="Contract address of interest")
-filter_parser.add_argument("--job_id", "-j", type=str, default='0', help="job id for running multiple jobs")
-args = argparse.Namespace(job_name='contracts_to', start_block='17594916',end_block = '17595016', addr=['0x5a98fcbea516cf06857215779fd812ca3bef1b32'], job_id='0')
-
-
-
-filter_parser = argparse.ArgumentParser()
-filter_parser.add_argument("--start_block", "-sb", type=str, required=True, help="starting blocknumber")
-filter_parser.add_argument("--end_block", '-eb', type=str, required=True, help="ending blocknumber")
-filter_parser.add_argument("--addr", "-a", type=str, nargs='+', required=True,help="Contract address of interest")
+filter_parser.add_argument("--pos", "-p", type=str, nargs='+', required=True,help="Contract address position")
 filter_parser.add_argument("--job_id", "-j", type=str, default='0', help="job id for running multiple jobs")
 
-args = argparse.Namespace(start_block='17594916',end_block = '17595016', addr=['valid_eth_protocols.csv'])
+
+args = argparse.Namespace(start_block='17594916',end_block = '17595016', addr=['0x1f9840a85d5af5bf1d1762f925bdaddc4201f984'], pos = 'to', job_id= '0')
+
+
+
 
 
 search_addr = Web3.to_checksum_address(args.addr[0])
