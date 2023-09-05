@@ -16,12 +16,12 @@ python main.py -h
 example output:
 
 ```
-usage: main.py [-h] {contracts_from,contracts_to,txs_to,traces_to,txs_from,traces_from,apply_filter,get_logs} ...
+usage: main.py [-h] {contracts_from,contracts_to,txs_to,traces_to,txs_from,traces_from,apply_filter,get_logs,trace_filter} ...
 
 eth ETL program
 
 positional arguments:
-  {contracts_from,contracts_to,txs_to,traces_to,txs_from,traces_from,apply_filter,get_logs}
+  {contracts_from,contracts_to,txs_to,traces_to,txs_from,traces_from,apply_filter,get_logs,trace_filter}
                         Choose a job to execute.
     contracts_from      export contracts that are called from the input contract
     contracts_to        export contracts that make calls to the input contract
@@ -29,8 +29,9 @@ positional arguments:
     traces_to           export traces of the transactions that were making calls to the input contract
     txs_from            export transactions that were from the input contract
     traces_from         export traces of transactions that were from the input contract
-    apply_filter        apply filter on the range of blocknumber to query addrs/transactions/traces
-    get_logs            apply filter on the range of blocknumber to get event logs
+    apply_filter        apply filter on the range of blocknumbers to query addrs/transactions/traces
+    get_logs            apply filter on the range of blocknumbers to get event logs
+    trace_filter        apply trace filter on the range of blocknumbers to get traces
 
 options:
   -h, --help            show this help message and exit
@@ -44,3 +45,18 @@ then run
 ```
 python subprocess_handler.py
 ```
+
+**4. Notes on Decoding Inputs (tx/trace)**
+
+All workflows, with the exception of the "trace_filter" job, attempt to fetch ABIs from Etherscan for suitable input data that can be decoded. If the ABI is unavailable from Etherscan:
+
+- The decoding step is skipped.
+- The input data is not exported.
+
+For the "trace_filter" job:
+
+- It always exports the raw input.<br>
+- It aims to export at least the function identifier by:<br>
+1. Checking Etherscan for ABIs.<br>
+2. If the above fails, it checks the Ethereum public byte library for the function signature. <br>
+3. If all attempts fail, it still exports the hex signature of the function extracted from the input data.
