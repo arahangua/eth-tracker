@@ -69,7 +69,7 @@ def get_args():
     filter_parser.add_argument("--start_block", "-sb", type=str, required=True, help="starting blocknumber")
     filter_parser.add_argument("--end_block", '-eb', type=str, required=True, help="ending blocknumber")
     filter_parser.add_argument("--addr", "-a", type=str, nargs='+', required=True,help="Contract address of interest")
-    filter_parser.add_argument("--pos", "-p", type=str, nargs='+', required=True,help="Contract address position")
+    filter_parser.add_argument("--pos", "-p", type=str, required=True,help="Contract address position")
     filter_parser.add_argument("--job_id", "-j", type=str, default='0', help="job id for running multiple jobs")
     
       

@@ -599,7 +599,7 @@ class Eth_tracker():
         search_addr = Web3.to_checksum_address(search_addr) 
         # get traces
         traces = self.send_trace_filter_req(args, search_addr)
-        if(len(traces)>0):
+        if(traces is not None):
             logger.info(f'fomatting filter traces for the address : {search_addr}')
             # get target blocks
             formatted = self.format_traces(traces)
@@ -627,7 +627,7 @@ class Eth_tracker():
         for search_addr in CONTRACTS_BK:
             logger.info(f'getting traces for the address : {search_addr}, starting block : {args.start_block} ending block : {args.end_block} at {args.pos} position')
             # check if its cached
-            cache_root = f'./output/{DATE}/{args.start_block}_{args.end_block}/traces'
+            cache_root = f'./output/{DATE}/{args.start_block}_{args.end_block}/traces_{args.pos}'
             cache_file = f'{cache_root}/{search_addr}.csv'
             
             if(os.path.exists(cache_file)):
@@ -637,7 +637,7 @@ class Eth_tracker():
                 target_traces = self._get_traces_filter(args, search_addr)
                 
                 if(target_traces is not None):
-                    logger.info(f'found {len(target_traces)} log entries for addr : {search_addr}')
+                    logger.info(f'found {len(target_traces)} trace entries for addr : {search_addr}')
                     utils.check_dir(cache_root)
                     target_traces.to_csv(cache_file, index=False)
                     logger.info(f'exporting done.')
