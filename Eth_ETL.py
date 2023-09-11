@@ -153,8 +153,35 @@ class Eth_tracker():
             contract_abi = self.get_abi(addr, ETHERSCAN_API)
             return contract_abi, 'contract'
         
+
     def decode_input(self, input, contract_addr, contract_abi):
         contract = self.w3.eth.contract(address=contract_addr, abi=contract_abi)
+
+        # check if it is a proxy contract 
+        impl_check = 'implementation' in contract_abi.lower()
+        upgrade_check = 'upgrade' in contract_abi.lower()
+        verdict = impl_check and upgrade_check
+        if(verdict):
+            logger.info(f'found a proxy contract ({contract_addr}). Fetching the implementation function to get the matching contract (for now only openzeppelin upgradable proxy is handled.)')
+            # somehow nowadays proxy contracts prevent clients from calling implementation function directly.
+            #implementation_address = contract.functions.implementation().call()
+
+            # for openzeppelin upgradable template
+            padded = Web3.toHex(self.w3.eth.get_storage_at(contract_addr, "0x7050c9e0f4ca769c69bd3a8ef740bc37934f8e2c036e5a723fd8ee048ed3f8c3"))
+            padded = padded[-42:]
+            impl_addr = '0x' + padded[2:]
+            if(impl_addr=='0x0000000000000000000000000000000000000000'):
+                logger.info(f'found a proxy but {contract_addr} is not using openzeppelin upgradable contract... moving on')
+                func = input[:10]
+                params = 'unknown_proxy' 
+                return func, params
+
+            else:
+                logger.info(f'found a proxy contract that probably is using openzeppelin upgradable contract')
+                impl_addr = Web3.to_checksum_address(impl_addr)
+                contract_abi, verdict = self.get_contract_abi(impl_addr, ETHERSCAN_API=self.apis['ETHERSCAN_API'])
+                contract = self.w3.eth.contract(address=contract_addr, abi=contract_abi)
+        
         func, params = contract.decode_function_input(input)
 
         return func, params
@@ -180,7 +207,10 @@ class Eth_tracker():
             inner['from']=collect_subset['from']
             inner['to']= collect_subset['to']
             inner['decoded']={}
-            inner['decoded']['function_name']=func.function_identifier
+            if(params=='unknown_proxy'):
+                inner['decoded']['function_name']=func
+            else:
+                inner['decoded']['function_name']=func.function_identifier
             inner['decoded']['values']=params
             write['output']=inner
         
@@ -225,7 +255,10 @@ class Eth_tracker():
                 logger.info(f'decoded inputs for the trace (index: {action_subset.name} of block: {self.block_id})')
                 inner['decoded']={}
                 inner['decoded']['input']={}
-                inner['decoded']['input']['function_name']=func.function_identifier
+                if(params=='unknown_proxy'):
+                    inner['decoded']['input']['function_name']=func
+                else:            
+                    inner['decoded']['input']['function_name']=func.function_identifier
                 inner['decoded']['input']['values']=params
             except Exception as e:
                 logger.error(f"input could not be decoded. input: {input}  \n tx_hash: {inner['transactionHash']}, skipping the decoding of the input. Error raised : {e}")
@@ -236,7 +269,10 @@ class Eth_tracker():
                     func, params = self.decode_input(output, search_entry, contract_abi)
                     logger.info(f'decoded outputs for the trace (index: {action_subset.name} of block: {self.block_id})')
                     inner['decoded']['output']={}
-                    inner['decoded']['output']['function_name']=func.function_identifier
+                    if(params=='unknown_proxy'):
+                        inner['decoded']['output']['function_name']=func
+                    else:    
+                        inner['decoded']['output']['function_name']=func.function_identifier
                     inner['decoded']['output']['values']=params
                 
                 except Exception as e:
@@ -572,7 +608,10 @@ class Eth_tracker():
                 else: # in case we have a matching ABI
                     func, params = self.decode_input(hex_input, contract_addr, contract_abi)
                     # return decoded input
-                    decoded = func.function_identifier
+                    if(params=='unknown_proxy'):
+                        decoded = func
+                    else:
+                        decoded = func.function_identifier
                     abi_exists = 1 # here we deliberately ignore decoded params for better batch-level analysis downstream by just flagging existence of ABI.
             # fallback function
             else:
@@ -659,9 +698,9 @@ filter_parser.add_argument("--pos", "-p", type=str, nargs='+', required=True,hel
 filter_parser.add_argument("--job_id", "-j", type=str, default='0', help="job id for running multiple jobs")
 
 
-args = argparse.Namespace(start_block='17594916',end_block = '17595016', addr=['0x1f9840a85d5af5bf1d1762f925bdaddc4201f984'], pos = 'to', job_id= '0')
+args = argparse.Namespace(start_block='17930429',end_block = '17930528', addr=['0xE4000004000bd8006e00720000d27d1FA000d43e'], pos = 'from', job_id= '0')
 
-
+ -sb 17930229 -eb 17930328 -a 0xE4000004000bd8006e00720000d27d1FA000d43e -p from
 
 
 
