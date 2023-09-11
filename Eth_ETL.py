@@ -209,6 +209,8 @@ class Eth_tracker():
             inner['decoded']={}
             if(params=='unknown_proxy'):
                 inner['decoded']['function_name']=func
+            elif(params=='ABI_reading_problem'):
+                inner['decoded']['function_name']=func
             else:
                 inner['decoded']['function_name']=func.function_identifier
             inner['decoded']['values']=params
@@ -271,6 +273,8 @@ class Eth_tracker():
                     inner['decoded']['output']={}
                     if(params=='unknown_proxy'):
                         inner['decoded']['output']['function_name']=func
+                    elif(params=='ABI_reading_problem'):
+                        inner['decoded']['output']['function_name']= func
                     else:    
                         inner['decoded']['output']['function_name']=func.function_identifier
                     inner['decoded']['output']['values']=params
@@ -606,9 +610,18 @@ class Eth_tracker():
                         decoded = text_signature
                 
                 else: # in case we have a matching ABI
-                    func, params = self.decode_input(hex_input, contract_addr, contract_abi)
+                    try:
+                        func, params = self.decode_input(hex_input, contract_addr, contract_abi)
+                    except Exception as e:
+                        print(e)
+                        logger.error(f'suspecting a client problem. If the error was about \"insufficientDataBytes\" it could be a geth problem. https://github.com/ethereum/web3.py/issues/1257')
+                        func = hex_input[:10] 
+                        params = 'ABI_reading_problem'
+                    
                     # return decoded input
                     if(params=='unknown_proxy'):
+                        decoded = func
+                    elif(params=='ABI_reading_problem'):
                         decoded = func
                     else:
                         decoded = func.function_identifier
@@ -698,7 +711,7 @@ filter_parser.add_argument("--pos", "-p", type=str, nargs='+', required=True,hel
 filter_parser.add_argument("--job_id", "-j", type=str, default='0', help="job id for running multiple jobs")
 
 
-args = argparse.Namespace(start_block='17930429',end_block = '17930528', addr=['0xE4000004000bd8006e00720000d27d1FA000d43e'], pos = 'from', job_id= '0')
+args = argparse.Namespace(start_block='17930329',end_block = '17930428', addr=['0xE4000004000bd8006e00720000d27d1FA000d43e'], pos = 'from', job_id= '0')
 
  -sb 17930229 -eb 17930328 -a 0xE4000004000bd8006e00720000d27d1FA000d43e -p from
 
