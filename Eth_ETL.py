@@ -569,7 +569,7 @@ class Eth_tracker():
 
 
             # try to decipher inputs 
-            decoded, abi_exists = self.decoding_handler(tx['to'], tx['input'])
+            decoded, abi_exists = self.decoding_handler(tx['to'], tx['input'], tx['value'])
 
             tx['decoded'] = decoded
             tx['abi'] = abi_exists
@@ -583,7 +583,7 @@ class Eth_tracker():
         return collect
 
 
-    def decoding_handler(self, contract_addr, hex_input:str):
+    def decoding_handler(self, contract_addr, hex_input:str, trace_value):
         contract_addr = Web3.to_checksum_address(contract_addr) 
 
         # first check if ABI exists on Etherscan
@@ -626,10 +626,18 @@ class Eth_tracker():
                     else:
                         decoded = func.function_identifier
                     abi_exists = 1 # here we deliberately ignore decoded params for better batch-level analysis downstream by just flagging existence of ABI.
-            # fallback function
+            # if input is 0x, need to check a value. If value is also 0x then likely a fallback function and if value is not 0x then likely a unwrapping (ether transfer) is happening.
             else:
-                logger.info(f'probably a fallback function/unwrapping (ether transfer) getting called')
-                decoded = 'fallback'
+
+                if(len(trace_value)>2):
+                    eth_convert = int(trace_value, 16)/10**18
+                    logger.info(f'likely a unwrapping event (ether transfer) {eth_convert:.3f} ETH')
+                    decoded = 'unwrapping'    
+                
+                else:
+                    logger.info(f'probably a fallback function of a contract(\'to\') getting called')
+                    decoded = 'fallback'
+            
         else:
             # for cases where it was an ether transfer or a contract creation
 
