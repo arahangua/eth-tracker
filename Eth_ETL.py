@@ -628,7 +628,7 @@ class Eth_tracker():
                     abi_exists = 1 # here we deliberately ignore decoded params for better batch-level analysis downstream by just flagging existence of ABI.
             # fallback function
             else:
-                logger.info(f'probably a fallback function/unwrapping/ether transfer getting called')
+                logger.info(f'probably a fallback function/unwrapping (ether transfer) getting called')
                 decoded = 'fallback'
         else:
             # for cases where it was an ether transfer or a contract creation
