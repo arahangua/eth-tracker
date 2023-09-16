@@ -28,10 +28,13 @@ for curr_ in np.arange(n_chunk)+1:
     if(curr_==n_chunk):
         modulo = len(lines)%process_n
         job_indices = np.arange(curr_point, curr_point+modulo, 1)
-    
+        # increment
+        curr_point = curr_point+modulo
+
     else:
         job_indices = np.arange(curr_point, curr_point+process_n, 1)
-    
+        # increment
+        curr_point = curr_point+process_n
 
 
     processes=[]
