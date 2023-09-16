@@ -14,6 +14,8 @@ now = datetime.datetime.now()
 # Format the date to 'day-month-year'
 DATE = now.strftime('%d%m%y')
 
+#global switch for fetching abis 
+RETRY_UNVERIFIED=False
 
 logger = logging.getLogger(__name__)
 
@@ -143,9 +145,26 @@ class Eth_tracker():
 
 
     def get_contract_abi(self, addr:str, ETHERSCAN_API=None):
-        code = self.w3.eth.get_code(addr)
+        
+        # make/check local cache 
+        cached_file = f"./bytecode/{addr}.txt"
+        if os.path.exists(cached_file):
+            with open(cached_file, 'r') as infile:
+                code = json.load(infile)
+                print(f"using cached bytecode for {addr}")
+            
+        else:
+            print(f"fetching bytecode for {addr}")
+            code = self.w3.eth.get_code(addr) # expensive when using rpc services 
+
+            utils.check_dir(f"./bytecode")
+            with open(cached_file, 'w') as outfile:
+                json.dump(code.hex(), outfile)
+                print('bytecode saved')
+
+
         # Check if the address is a contract account
-        if code.hex() == '0x':
+        if code == '0x':
             print(f"{addr} is an EOA")
             return None, 'eoa'
         else:
@@ -297,8 +316,12 @@ class Eth_tracker():
         if os.path.exists(cached_file):
             with open(cached_file, 'r') as infile:
                 abi_result = json.load(infile)
-                print("using cached abi")
-            return abi_result
+                if RETRY_UNVERIFIED==False and abi_result=='Contract source code not verified':
+                    logger.info(f'ABI fetching step is ignored for {contract_addr} as previous attempts were not successful. In case you want to force fetching please set global var RETRY_UNVERIFIED to True in Eth_ETL.py')
+                    return 
+                else:
+                    print("using cached abi")
+                    return abi_result
         
         url = f"https://api.etherscan.io/api?module=contract&action=getabi&address={contract_addr}&apikey={ETHERSCAN_API}"
         response = requests.get(url)
@@ -315,6 +338,11 @@ class Eth_tracker():
             
         else:
             print(f"Error: {res['message']} Result: {res['result']}")    
+            utils.check_dir(f"./abis")
+            with open(cached_file, 'w') as outfile:
+                json.dump(res['result'], outfile)
+                print(f'There was an error when fetching abi for {contract_addr}, saved the error msg in abi folder')
+            
             return # contract cannot be initialized with abi (could use function signatures for targeted approach)
     
     
@@ -617,7 +645,7 @@ class Eth_tracker():
                         func, params = self.decode_input(hex_input, contract_addr, contract_abi)
                     except Exception as e:
                         print(e)
-                        logger.error(f'suspecting a client problem (for decoding of input using ABI). If the error was about \"insufficientDataBytes\" it could be a geth problem. https://github.com/ethereum/web3.py/issues/1257')
+                        logger.error(f'suspecting a client problem (for decoding inputs using ABI). If the error was about \"insufficientDataBytes\" it could be a geth problem. https://github.com/ethereum/web3.py/issues/1257')
                         func = hex_input[:10] 
                         params = 'ABI_reading_problem'
                     

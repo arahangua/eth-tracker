@@ -132,7 +132,6 @@ dist
 
 #python
 __pycache__
-abis/
 observation_list/
 
 
@@ -145,3 +144,7 @@ output/
 
 #batch job related
 batch_job*.txt
+
+# job specific local cache
+abis/
+bytecode/
