@@ -560,6 +560,9 @@ class Eth_tracker():
             
             tx['blockHash'] = tr['blockHash']
             tx['blockNumber'] = tr['blockNumber']
+            if(tr['result'] is None): # some edge case where trace itself is not none but 'result' is nonetype
+                logger.error(f'spotted a failed execution skipping to the next trace')
+                continue
             tx['gasUsed'] = tr['result']['gasUsed']
             tx['output'] = tr['result']['output']
             tx['subtraces']= tr['subtraces']
@@ -614,7 +617,7 @@ class Eth_tracker():
                         func, params = self.decode_input(hex_input, contract_addr, contract_abi)
                     except Exception as e:
                         print(e)
-                        logger.error(f'suspecting a client problem. If the error was about \"insufficientDataBytes\" it could be a geth problem. https://github.com/ethereum/web3.py/issues/1257')
+                        logger.error(f'suspecting a client problem (for decoding of input using ABI). If the error was about \"insufficientDataBytes\" it could be a geth problem. https://github.com/ethereum/web3.py/issues/1257')
                         func = hex_input[:10] 
                         params = 'ABI_reading_problem'
                     
