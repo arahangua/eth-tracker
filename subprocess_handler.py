@@ -11,7 +11,7 @@ args = parser.parse_args()
 batch_script = args.batch_script
 
 # read in batch_job.txt file
-process_n = 50
+process_n = 5
 
 with open(batch_script, 'r') as infile:
      lines = [line.strip() for line in infile.readlines()]
