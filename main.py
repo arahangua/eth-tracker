@@ -22,7 +22,10 @@ assert w3.is_connected(), 'please check rpc provider configuration, web3 connect
 # parsing arguments
 args = get_args()
 
+
 # Configure logging
+if(not(os.path.exists('./logs'))):
+    os.makedirs('./logs')
 logging.basicConfig(filename=f'./logs/eth_etl_{args.job_id}.log', level=logging.INFO, format='%(asctime)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S', filemode='w')
 # for terminal outputs
 sh = logging.StreamHandler()
