@@ -773,8 +773,7 @@ class Eth_tracker():
                 if(str(tr['transactionPosition']) in args.tx_pos):
                     subset.append(tr)
             
-        logger.info(f'found {len(subset)} traces matching the input arguments')
-
+       
        
         if(traces is not None):
             logger.info(f'fomatting exported traces...')
