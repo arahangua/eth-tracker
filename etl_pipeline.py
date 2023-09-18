@@ -9,7 +9,10 @@ def run_job(args, w3, apis):
     # Config vars
     # BLOCK_ID = '17781200'
     # CONTRACTS = '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D'
-    
+    if not hasattr(args, 'addr'):
+        setattr(args, 'addr', 'no_target')
+
+
     if hasattr(args,'blocknumber'):
         BLOCK_ID = args.blocknumber#'17781200'
     else:
@@ -21,6 +24,9 @@ def run_job(args, w3, apis):
         parsed = file_str.split('.')
         logger.info(f'reading a separate file for contract addresses of interest : found a {parsed[-1]} file')
         CONTRACTS= handle_addr_file(file_str, parsed[-1])
+    elif(args.addr=='no_target'):
+        logger.info(f'no target address was set, exporting all applicable traces')
+        CONTRACTS= args.addr
     else:
         CONTRACTS = args.addr #'0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D' or a list of addresses
     ETHERSCAN_API = apis['ETHERSCAN_API'] 
@@ -110,16 +116,22 @@ def run_job(args, w3, apis):
     elif args.job=='get_logs':
         logger.info(f"Applying a filter in the block range of start_block : {args.start_block}, end_block : {args.end_block}. getting logs for contract(s) : {args.addr}")
         #apply filter and get matching entries
-        CONTRACTS_BK = CONTRACTS # backing up CONTRACTS global variable as we will be calling run_job function with modifed args.        
         # collect logs and save interim result
-        eth.get_target_logs(CONTRACTS_BK, args)
+        eth.get_target_logs(CONTRACTS, args)
 
     elif args.job=='trace_filter':
         logger.info(f"Applying a trace filter in the block range of start_block : {args.start_block}, end_block : {args.end_block}. getting traces for contract(s) : {args.addr}")
         #apply filter and get matching entries
-        CONTRACTS_BK = CONTRACTS # backing up CONTRACTS global variable as we will be calling run_job function with modifed args.        
         # collect traces and save interim result
-        eth.get_traces_from_filter(CONTRACTS_BK, args)
+        eth.get_traces_from_filter(CONTRACTS, args)
+    
+    elif args.job=='trace_out':
+       
+        logger.info(f"exporting entire traces for the blocknumber : {args.blocknumber}, transaction positions : {args.tx_pos}")
+        #apply filter and get matching entries
+        # collect traces and save interim result
+        eth.get_all_traces(CONTRACTS, args)
+
 
 
     

@@ -72,7 +72,12 @@ def get_args():
     filter_parser.add_argument("--pos", "-p", type=str, required=True,help="Contract address position")
     filter_parser.add_argument("--job_id", "-j", type=str, default='0', help="job id for running multiple jobs")
     
-      
+    # export all traces given a blocknumber and a target transaction position 
+    filter_parser = subparsers.add_parser("trace_out", help="complete export of a trace given a blocknumber and transaction position")
+    filter_parser.add_argument("--blocknumber", "-b", type=str, required=True, help="target blocknumber")
+    filter_parser.add_argument("--tx_pos", "-p", type=str, nargs='+', required=True,help="target transaction position")
+    filter_parser.add_argument("--job_id", "-j", type=str, default='0', help="job id for running multiple jobs")
+    
     
     
     

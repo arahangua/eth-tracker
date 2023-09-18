@@ -714,8 +714,8 @@ class Eth_tracker():
 
 
 
-    def get_traces_from_filter(self, CONTRACTS_BK, args):
-        for search_addr in CONTRACTS_BK:
+    def get_traces_from_filter(self, CONTRACTS, args):
+        for search_addr in CONTRACTS:
             logger.info(f'getting traces for the address : {search_addr}, starting block : {args.start_block} ending block : {args.end_block} at {args.pos} position')
             # check if its cached
             cache_root = f'./output/{DATE}/{args.start_block}_{args.end_block}/traces_{args.pos}'
@@ -735,6 +735,57 @@ class Eth_tracker():
                 else:
                     logger.error(f'no logs were found for the given range of blocks')
     
+    def get_all_traces(self, CONTRACTS, args):
+        
+        # check if its cached
+        cache_root = f'./output/{DATE}/trace_out/{args.blocknumber}'
+        cache_file = f'{cache_root}/traced_out.csv'
+        
+        if(os.path.exists(cache_file)):
+                logger.info(f'traces for the block : {args.blocknumber} / tx_pos : {args.tx_pos} was already exported')
+                
+        else:
+            target_traces = self._get_all_traces(CONTRACTS, args)
+            
+            if(target_traces is not None):
+                logger.info(f'found {len(target_traces)} trace entries for tx_pos : {args.tx_pos}')
+                utils.check_dir(cache_root)
+                target_traces.to_csv(cache_file, index=False)
+                logger.info(f'exporting done.')
+            else:
+                logger.error(f'no logs were found for the given range of blocks')
+
+    def _get_all_traces(self, CONTRACTS, args):
+        if(CONTRACTS != 'no_target'):
+            logger.info(f'tracing out with target addresses')
+        
+        else:
+            logger.info(f'exporting all traces for the given tx positions without using target addresses')
+        
+        
+        # get traces
+        traces = self.fetch_blocktrace(self.apis['RPC_PROVIDER'])
+        
+        # subset them (transactionPosition)
+        subset = []
+        for tr in traces:
+            if('transactionPosition' in tr):
+                if(str(tr['transactionPosition']) in args.tx_pos):
+                    subset.append(tr)
+            
+        logger.info(f'found {len(subset)} traces matching the input arguments')
+
+       
+        if(traces is not None):
+            logger.info(f'fomatting exported traces...')
+            # get target blocks
+            formatted = self.format_traces(subset)
+            return formatted
+        else:
+            # no trace was found.
+            return None
+
+
 
 
 #below for debugging purpose
@@ -748,9 +799,18 @@ filter_parser.add_argument("--end_block", '-eb', type=str, required=True, help="
 filter_parser.add_argument("--addr", "-a", type=str, nargs='+', required=True,help="Contract address of interest")
 filter_parser.add_argument("--pos", "-p", type=str, nargs='+', required=True,help="Contract address position")
 filter_parser.add_argument("--job_id", "-j", type=str, default='0', help="job id for running multiple jobs")
-
-
 args = argparse.Namespace(start_block='17930329',end_block = '17930428', addr=['0xE4000004000bd8006e00720000d27d1FA000d43e'], pos = 'from', job_id= '0')
+
+
+# export all traces given a blocknumber and a target transaction position 
+filter_parser.add_argument("--blocknumber", "-b", type=str, required=True, help="target blocknumber")
+filter_parser.add_argument("--tx_pos", "-p", type=str, nargs='+', required=True,help="target transaction position")
+filter_parser.add_argument("--addr", "-a", type=str, nargs='+', default= 'no_target', required=False, help="Contract address(es) of interest (optional filter)")
+filter_parser.add_argument("--job_id", "-j", type=str, default='0', help="job id for running multiple jobs")
+args = argparse.Namespace(blocknumber='17930329', tx_pos=['3', '5'], addr= 'no_target', job_id= '0')
+
+
+
 
  -sb 17930229 -eb 17930328 -a 0xE4000004000bd8006e00720000d27d1FA000d43e -p from
 
