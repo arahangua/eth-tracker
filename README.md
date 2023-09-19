@@ -1,5 +1,9 @@
 # eth-tracker
 
+![two-hop neighborhood of a target address](./src/by_txtype_with_legend.png)
+*Gephi-visualized example trace graph*
+
+
 **1. setup .env file**
 
 ```
@@ -21,7 +25,7 @@ usage: main.py [-h] {contracts_from,contracts_to,txs_to,traces_to,txs_from,trace
 eth ETL program
 
 positional arguments:
-  {contracts_from,contracts_to,txs_to,traces_to,txs_from,traces_from,apply_filter,get_logs,trace_filter}
+  {contracts_from,contracts_to,txs_to,traces_to,txs_from,traces_from,apply_filter,get_logs,trace_filter,trace_out}
                         Choose a job to execute.
     contracts_from      export contracts that are called from the input contract
     contracts_to        export contracts that make calls to the input contract
@@ -32,6 +36,7 @@ positional arguments:
     apply_filter        apply filter on the range of blocknumbers to query addrs/transactions/traces
     get_logs            apply filter on the range of blocknumbers to get event logs
     trace_filter        apply trace filter on the range of blocknumbers to get traces
+    trace_out           complete export of a trace given a blocknumber and transaction position
 
 options:
   -h, --help            show this help message and exit
@@ -53,7 +58,7 @@ All workflows, with the exception of the "trace_filter" job, attempt to fetch AB
 - The decoding step is skipped.
 - The input data is not exported.
 
-For the "trace_filter" job:
+For the "trace_filter" and "trace_out" jobs:
 
 - It always exports the raw input.<br>
 - It aims to export at least the function identifier by:<br>
