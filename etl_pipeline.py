@@ -3,12 +3,14 @@ from Eth_ETL import Eth_tracker
 import logging
 import pandas as pd
 
+
 logger = logging.getLogger(__name__)
 
 def run_job(args, w3, apis):
     # Config vars
     # BLOCK_ID = '17781200'
     # CONTRACTS = '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D'
+   
     if not hasattr(args, 'addr'):
         setattr(args, 'addr', 'no_target')
 
@@ -132,7 +134,25 @@ def run_job(args, w3, apis):
         # collect traces and save interim result
         eth.get_all_traces(CONTRACTS, args)
 
+    elif args.job=='decode_trace':
+       
+        logger.info(f"decoding exported traces with a search keyword {args.search_keyword}, decoding : {args.exported_file}")
+        
+        #initialize transfer decoder
+        sys.path.append('./decode')
 
+        if(args.search_keyword == 'transfer'):
+            from traces_decoder import Transfer_Decoder
+            td = Transfer_Decoder(eth_tracker_loc='./')
+            result = td.decode_trace_csv(args.exported_file, args.search_keyword)
+            # save it
+            parsed= args.exported_file.split('/')
+            parent_dir = '/'.join(parsed[:-1])
+            result.to_csv(f'{parent_dir}/{args.search_keyword}.csv', index=False)
+            logger.info(f'decoding job successfully finished for {parent_dir}/{args.search_keyword}.csv')
+
+        else:
+            logger.error(f"decoding for {args.search_keyword} not yet implemented")
 
     
 

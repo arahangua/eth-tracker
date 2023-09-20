@@ -73,11 +73,16 @@ def get_args():
     filter_parser.add_argument("--job_id", "-j", type=str, default='0', help="job id for running multiple jobs")
     
     # export all traces given a blocknumber and a target transaction position 
-    filter_parser = subparsers.add_parser("trace_out", help="complete export of a trace given a blocknumber and transaction position")
+    filter_parser = subparsers.add_parser("trace_out", help="full export of a trace given a blocknumber and transaction position")
     filter_parser.add_argument("--blocknumber", "-b", type=str, required=True, help="target blocknumber")
     filter_parser.add_argument("--tx_pos", "-p", type=str, nargs='+', required=True,help="target transaction position")
     filter_parser.add_argument("--job_id", "-j", type=str, default='0', help="job id for running multiple jobs")
     
+    # after trace_out job was executed, decode exported inputs with a specific search keyword for function names 
+    filter_parser = subparsers.add_parser("decode_trace", help="decode exported inputs (trace_out) with a specific search keyword for function names")
+    filter_parser.add_argument("--search_keyword", "-s", type=str, required=True, help="search keyword for function names")
+    filter_parser.add_argument("--exported_file", "-e", type=str, required=True,help="exported traces (csv file)")
+    filter_parser.add_argument("--job_id", "-j", type=str, default='0', help="job id for running multiple jobs")
     
     
     

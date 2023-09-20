@@ -613,6 +613,20 @@ class Eth_tracker():
 
         return collect
 
+    def public_library_check(self, hex_input):
+        # get first 8 hex digits (4 bytes) + 2 (0x)
+        hex_signature = hex_input[:10] 
+        text_signature = self.query_public_library(hex_signature)
+        if(text_signature is None):
+            logger.error(f'input hex : {hex_signature} was not found in the public library. Input cannot be decoded')
+            decoded = hex_signature
+        else: 
+            # WIP for further decoding the input using the text_signature
+            # parsed_dtypes = self.parse_dtypes(text_signature)
+            # hex_data = bytes.fromhex(hex_input)
+            # decodedABI = eth_abi.abi.decode(parsed_dtypes, hex_data)
+            decoded = text_signature
+        return decoded
 
     def decoding_handler(self, contract_addr, hex_input:str, trace_value):
         contract_addr = Web3.to_checksum_address(contract_addr) 
@@ -627,18 +641,7 @@ class Eth_tracker():
             if(len(hex_input)>2): #handling null and 0x
                 if(contract_abi is None):
                     logger.info(f'fetching ABI failed. Trying to query public byte library')
-                    # get first 8 hex digits (4 bytes) + 2 (0x)
-                    hex_signature = hex_input[:10] 
-                    text_signature = self.query_public_library(hex_signature)
-                    if(text_signature is None):
-                        logger.error(f'input hex : {hex_signature} was not found in the public library. Input cannot be decoded')
-                        decoded = hex_signature
-                    else: 
-                        # WIP for further decoding the input using the text_signature
-                        # parsed_dtypes = self.parse_dtypes(text_signature)
-                        # hex_data = bytes.fromhex(hex_input)
-                        # decodedABI = eth_abi.abi.decode(parsed_dtypes, hex_data)
-                        decoded = text_signature
+                    decoded = self.public_library_check(hex_input)
                 
                 else: # in case we have a matching ABI
                     try:
@@ -648,11 +651,11 @@ class Eth_tracker():
                         logger.error(f'suspecting a client problem (for decoding inputs using ABI). If the error was about \"insufficientDataBytes\" it could be a geth problem. https://github.com/ethereum/web3.py/issues/1257')
                         func = hex_input[:10] 
                         params = 'ABI_reading_problem'
+                        decoded = self.public_library_check(hex_input)
+
                     
                     # return decoded input
                     if(params=='unknown_proxy'):
-                        decoded = func
-                    elif(params=='ABI_reading_problem'):
                         decoded = func
                     else:
                         decoded = func.function_identifier

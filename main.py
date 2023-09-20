@@ -5,7 +5,7 @@ import logging
 from dotenv import load_dotenv
 from web3 import Web3
 import pandas as pd
-import etl_pipeline
+import etl_pipeline, decode_pipeline
 from arg_parser import get_args
 
 #loading API key
@@ -37,6 +37,10 @@ logging.getLogger().addHandler(sh)
 logger = logging.getLogger(__name__)
 
 # run the job 
-etl_pipeline.run_job(args = args, w3=w3, apis = apis)
+decode_jobs = ['decode_trace']
+if(args.job in decode_jobs):
+    decode_pipeline.run_job(args = args, w3=w3, apis = apis)
+else:
+    etl_pipeline.run_job(args = args, w3=w3, apis = apis)
 
 logger.info(f"job succesfully done, please check eth_etl_{args.job_id}.log for the job log")
