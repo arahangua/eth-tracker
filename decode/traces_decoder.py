@@ -146,8 +146,8 @@ class Transfer_Decoder():
 
             # initiating address
             
-            init_addr = init_row['from']
-            init_contract = init_row['to']
+            init_addr = init_row['from'].squeeze()
+            init_contract = init_row['to'].squeeze()
 
             # sort traces in a chronological order if necessary, *already sorted in a chronological order (miner set sequence) atm.
             
@@ -290,12 +290,36 @@ class Transfer_Decoder():
 
     def get_erc20_denom(self, contract_address):
         contract = self.prep_contract(contract_address)
-        
-        # get symbol 
-        symbol = contract.functions.symbol().call()
 
-        # get denominator
-        decimal = contract.functions.decimals().call()
+        # check cache 
+        cache_root = f'{self.ET_root}/calls'
+        cached_file = f"{self.ET_root}/calls/{contract_address}.txt"
+        
+        if os.path.exists(cached_file):
+            with open(cached_file, 'r') as infile:
+                call_results = json.load(infile)
+                print(f"using cached call results for {contract_address}")
+
+                return call_results['symbol'], call_results['decimal']
+
+        else:
+        
+            # get symbol 
+            symbol = contract.functions.symbol().call()
+
+            # get denominator
+            decimal = contract.functions.decimals().call()
+
+            call_results= {}
+            call_results['symbol']=symbol
+            call_results['decimal']=decimal
+
+            # save results 
+            self.check_dir(cache_root)
+            with open(cached_file, 'w') as outfile:
+                json.dump(call_results, outfile)
+                print(f"call data saved for {contract_address}")
+
 
         # if(contract_address.lower()=='0xa2327a938febf5fec13bacfb16ae10ecbc4cbdcf'):
         #     symbol = 'USDC'
@@ -436,17 +460,17 @@ class Transfer_Decoder():
         decoded_params['symbol'] = symbol
         decoded_params['decimal'] = decimal
         
-        if('_sender' in params):
+        if('_amount' in params):
             decoded_params['value']=  int(params['_amount'])/10**int(decimal)
-        elif('sender' in params):
+        elif('amount' in params):
             decoded_params['value']=  int(params['amount'])/10**int(decimal)
-        elif('_src' in params):
+        elif('_wad' in params):
             decoded_params['value']=  int(params['_wad'])/10**int(decimal)
-        elif('src' in params):
+        elif('wad' in params):
             decoded_params['value']=  int(params['wad'])/10**int(decimal)
-        elif('_from' in params):
+        elif('_value' in params):
             decoded_params['value']=  int(params['_value'])/10**int(decimal)
-        elif('from' in params):
+        elif('value' in params):
             decoded_params['value']=  int(params['value'])/10**int(decimal)
         elif('rawAmount' in params):
             decoded_params['value']=  int(params['rawAmount'])/10**int(decimal)
@@ -564,3 +588,13 @@ class Transfer_Decoder():
 
 
 
+#below for debugging purpose
+'''
+import argparse
+
+filter_parser = argparse.ArgumentParser()
+args = argparse.Namespace(search_keyword='transfer', exported_file= '/home/takim/work/eth-tracker/output/190923/trace_out/17935498/traced_out.csv', job_id= '0')
+    
+    
+'''
+    
