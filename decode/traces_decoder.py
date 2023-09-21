@@ -303,29 +303,41 @@ class Transfer_Decoder():
                 return call_results['symbol'], call_results['decimal']
 
         else:
-        
-            # get symbol 
-            symbol = contract.functions.symbol().call()
+            try:
+                # get symbol 
+                symbol = contract.functions.symbol().call()
 
-            # get denominator
-            decimal = contract.functions.decimals().call()
+                # get denominator
+                decimal = contract.functions.decimals().call()
 
-            call_results= {}
-            call_results['symbol']=symbol
-            call_results['decimal']=decimal
+                call_results= {}
+                if(type(symbol)==bytes): # MKR does this...
+                    cleaned_bytes = symbol.rstrip(b'\x00')  # Remove trailing null bytes
+                    symbol = cleaned_bytes.decode('utf-8')
+                call_results['symbol']=symbol
+                call_results['decimal']=decimal
+                 
 
+
+            except Exception as e:
+                print(e)
+                logger.error(f'suspecting a faulty erc20 contract : {contract_address} (no symbol or decimal function implemented)')
+                logger.error('labeling as faulty token with decimal point of 18')
+                call_results= {}
+                call_results['symbol']='Faulty'
+                call_results['decimal']= 18
+            
             # save results 
             self.check_dir(cache_root)
             with open(cached_file, 'w') as outfile:
                 json.dump(call_results, outfile)
                 print(f"call data saved for {contract_address}")
 
-
         # if(contract_address.lower()=='0xa2327a938febf5fec13bacfb16ae10ecbc4cbdcf'):
         #     symbol = 'USDC'
         #     decimal = 6
 
-        return symbol, decimal
+        return call_results['symbol'], call_results['decimal']
 
     # all ether transfers and standard erc20 transfers will be handled.
     def decode_input_from_signature(self, decoded, params, one_trace):
@@ -373,7 +385,8 @@ class Transfer_Decoder():
             decoded_params['to'] = params['recipient']
         elif('_recipient' in params):
             decoded_params['to'] = params['_recipient']
-        
+        elif('recipient_' in params):
+            decoded_params['to'] = params['recipient_']
         # src, dst, wad case
         elif('dst' in params):
             decoded_params['to'] = params['dst']
@@ -385,6 +398,14 @@ class Transfer_Decoder():
         
         elif('_to' in params):
             decoded_params['to'] = params['_to']
+
+        elif('target' in params):
+            decoded_params['to'] = params['target']
+
+        elif('receiver' in params):
+            decoded_params['to'] = params['receiver']
+
+        
         else:
             raise ValueError(f'new syntax for transfer function detected : {params}')
         
@@ -400,6 +421,10 @@ class Transfer_Decoder():
             decoded_params['value']=  int(params['amount'])/10**int(decimal)
         elif('_amount' in params):
             decoded_params['value']=  int(params['_amount'])/10**int(decimal)
+        elif('amount_' in params):
+            decoded_params['value']=  int(params['amount_'])/10**int(decimal)
+        elif('amt' in params):
+            decoded_params['value']=  int(params['amt'])/10**int(decimal)
         
         elif('wad' in params):
             decoded_params['value']=  int(params['wad'])/10**int(decimal)
@@ -412,7 +437,11 @@ class Transfer_Decoder():
             decoded_params['value']=  int(params['_value'])/10**int(decimal)
         elif('rawAmount' in params):
             decoded_params['value']=  int(params['rawAmount'])/10**int(decimal)
+        elif('tokens' in params):
+            decoded_params['value']=  int(params['tokens'])/10**int(decimal)
         
+        
+
         
         else:
             raise ValueError(f'new syntax for transfer function detected : {params}')
@@ -432,6 +461,11 @@ class Transfer_Decoder():
         elif('sender' in params):
             decoded_params['from']= params['sender']
             decoded_params['to'] = params['recipient']
+        elif('sender_' in params):
+            decoded_params['from']= params['sender_']
+            decoded_params['to'] = params['recipient_']
+
+
         # src, dst, wad case
         elif('_src' in params):
             decoded_params['from']= params['_src']
@@ -447,6 +481,14 @@ class Transfer_Decoder():
         elif('from' in params):
             decoded_params['from']= params['from']
             decoded_params['to'] = params['to']
+        elif('holder' in params):
+            decoded_params['from']= params['holder']
+            decoded_params['to'] = params['recipient']
+        elif('spender' in params):
+            decoded_params['from']= params['spender']
+            decoded_params['to'] = params['recipient']
+
+
 
 
         
@@ -464,6 +506,8 @@ class Transfer_Decoder():
             decoded_params['value']=  int(params['_amount'])/10**int(decimal)
         elif('amount' in params):
             decoded_params['value']=  int(params['amount'])/10**int(decimal)
+        elif('amount_' in params):
+            decoded_params['value']=  int(params['amount_'])/10**int(decimal)
         elif('_wad' in params):
             decoded_params['value']=  int(params['_wad'])/10**int(decimal)
         elif('wad' in params):
@@ -474,6 +518,8 @@ class Transfer_Decoder():
             decoded_params['value']=  int(params['value'])/10**int(decimal)
         elif('rawAmount' in params):
             decoded_params['value']=  int(params['rawAmount'])/10**int(decimal)
+        elif('tokens' in params):
+            decoded_params['value']=  int(params['tokens'])/10**int(decimal)
         
         else:
             raise ValueError(f'new syntax for transferFrom function detected : {params}')
@@ -543,12 +589,13 @@ class Transfer_Decoder():
         if os.path.exists(cached_file):
             with open(cached_file, 'r') as infile:
                 abi_result = json.load(infile)
-                if RETRY_UNVERIFIED==False and abi_result=='Contract source code not verified':
+                if RETRY_UNVERIFIED==False and abi_result=='Contract source code not verified': #--> abi not usable
                     logger.info(f'ABI fetching step is ignored for {contract_addr} as previous attempts were not successful. In case you want to force fetching please set global var RETRY_UNVERIFIED to True in Eth_ETL.py')
                     return 
                 else:
-                    print("using cached abi")
-                    return abi_result
+                    if abi_result!='Max rate limit reached': # checks for previous rate limit problem
+                        print("using cached abi")
+                        return abi_result
         
         url = f"https://api.etherscan.io/api?module=contract&action=getabi&address={contract_addr}&apikey={ETHERSCAN_API}"
         response = requests.get(url)
@@ -593,7 +640,7 @@ class Transfer_Decoder():
 import argparse
 
 filter_parser = argparse.ArgumentParser()
-args = argparse.Namespace(search_keyword='transfer', exported_file= '/home/takim/work/eth-tracker/output/190923/trace_out/17935498/traced_out.csv', job_id= '0')
+args = argparse.Namespace(search_keyword='transfer', exported_file= '/home/takim/work/eth-tracker/output/190923/trace_out/17932904/traced_out.csv', job_id= '0')
     
     
 '''

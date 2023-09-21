@@ -316,13 +316,14 @@ class Eth_tracker():
         if os.path.exists(cached_file):
             with open(cached_file, 'r') as infile:
                 abi_result = json.load(infile)
-                if RETRY_UNVERIFIED==False and abi_result=='Contract source code not verified':
+                if RETRY_UNVERIFIED==False and abi_result=='Contract source code not verified': # --> abi not usable.
                     logger.info(f'ABI fetching step is ignored for {contract_addr} as previous attempts were not successful. In case you want to force fetching please set global var RETRY_UNVERIFIED to True in Eth_ETL.py')
                     return 
                 else:
-                    print("using cached abi")
-                    return abi_result
-        
+                    if abi_result!='Max rate limit reached': # checks for previous rate limit problem
+                        print("using cached abi")
+                        return abi_result
+                    
         url = f"https://api.etherscan.io/api?module=contract&action=getabi&address={contract_addr}&apikey={ETHERSCAN_API}"
         response = requests.get(url)
         res = response.json()
