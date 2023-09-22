@@ -667,7 +667,7 @@ class Eth_tracker():
                 if(len(trace_value)>2):
                     eth_convert = int(trace_value, 16)/10**18
                     logger.info(f'likely a unwrapping event (ether transfer) {eth_convert:.3f} ETH')
-                    decoded = 'unwrapping'    
+                    decoded = 'ether transfer(contract)'    
                 
                 else:
                     logger.info(f'probably a fallback function of a contract(\'to\') getting called')
@@ -682,7 +682,7 @@ class Eth_tracker():
                 decoded = 'contract creation'
             else:
                 logger.info(f'simple ether transfer')
-                decoded = 'ether transfer'
+                decoded = 'ether transfer(EOA)'
 
 
         return  decoded, abi_exists

@@ -151,11 +151,8 @@ class Transfer_Decoder():
 
             # sort traces in a chronological order if necessary, *already sorted in a chronological order (miner set sequence) atm.
             
-            if(search_str=='transfer'):
-                targets = tx_df[tx_df['decoded'].str.contains(search_str + '|unwrapping')]
-            
-            else:
-                targets = tx_df[tx_df['decoded'].str.contains(search_str)]
+   
+            targets = tx_df[tx_df['decoded'].str.contains(search_str)]
             # rest = self.sort_trace_rows(rest) 
 
             # decode each row
@@ -261,7 +258,7 @@ class Transfer_Decoder():
                 if(len(trace_value)>2):
                     eth_convert = int(trace_value, 16)/10**18
                     logger.info(f'likely a unwrapping event (ether transfer) {eth_convert:.3f} ETH')
-                    decoded = 'unwrapping'
+                    decoded = 'ether transfer(contract)'
                    
                 else:
                     logger.info(f'probably a fallback function of a contract(\'to\') getting called')
@@ -275,7 +272,7 @@ class Transfer_Decoder():
                 decoded = 'contract creation'
             else:
                 logger.info(f'simple ether transfer')
-                decoded = 'ether transfer'
+                decoded = 'ether transfer(EOA)'
 
         # prepare decoded variable from the given the above case handling 
         decoded_params = self.decode_input_from_signature(decoded, params, one_trace)
@@ -288,8 +285,36 @@ class Transfer_Decoder():
     def parse_dtype_from_sig(self, text_signature):
         pass
 
-    def get_erc20_denom(self, contract_address):
+    def get_symbol_decimal_erc20(self, contract_address):
         contract = self.prep_contract(contract_address)
+        try:
+            # get symbol 
+            symbol = contract.functions.symbol().call()
+
+            # get denominator
+            decimal = contract.functions.decimals().call()
+
+            call_results= {}
+            if(type(symbol)==bytes): # MKR does this...
+                cleaned_bytes = symbol.rstrip(b'\x00')  # Remove trailing null bytes
+                symbol = cleaned_bytes.decode('utf-8')
+            if(symbol is None):
+                symbol = 'empty'
+            call_results['symbol']=symbol
+            call_results['decimal']=decimal
+                 
+        except Exception as e:
+            print(e)
+            logger.error(f'suspecting a faulty erc20 contract : {contract_address} (no symbol or decimal function implemented)')
+            logger.error('labeling as faulty token with decimal point of 18')
+            call_results= {}
+            call_results['symbol']='Faulty'
+            call_results['decimal']= 18
+
+        return call_results
+
+    def get_erc20_denom(self, contract_address):
+        
 
         # check cache 
         cache_root = f'{self.ET_root}/calls'
@@ -299,34 +324,20 @@ class Transfer_Decoder():
             with open(cached_file, 'r') as infile:
                 call_results = json.load(infile)
                 print(f"using cached call results for {contract_address}")
+                if(type(call_results['symbol'])!=bytes): # checking for problems in locally-cached files
 
-                return call_results['symbol'], call_results['decimal']
+                    return call_results['symbol'], call_results['decimal']
+                else:
+                    call_results = self.get_symbol_decimal_erc20(contract_address)
+                    # save results 
+                    self.check_dir(cache_root)
+                    with open(cached_file, 'w') as outfile:
+                        json.dump(call_results, outfile)
+                        print(f"call data saved for {contract_address}")
 
         else:
-            try:
-                # get symbol 
-                symbol = contract.functions.symbol().call()
-
-                # get denominator
-                decimal = contract.functions.decimals().call()
-
-                call_results= {}
-                if(type(symbol)==bytes): # MKR does this...
-                    cleaned_bytes = symbol.rstrip(b'\x00')  # Remove trailing null bytes
-                    symbol = cleaned_bytes.decode('utf-8')
-                call_results['symbol']=symbol
-                call_results['decimal']=decimal
-                 
-
-
-            except Exception as e:
-                print(e)
-                logger.error(f'suspecting a faulty erc20 contract : {contract_address} (no symbol or decimal function implemented)')
-                logger.error('labeling as faulty token with decimal point of 18')
-                call_results= {}
-                call_results['symbol']='Faulty'
-                call_results['decimal']= 18
             
+            call_results = self.get_symbol_decimal_erc20(contract_address)
             # save results 
             self.check_dir(cache_root)
             with open(cached_file, 'w') as outfile:
@@ -350,7 +361,7 @@ class Transfer_Decoder():
             
             decoded_params = self.transferFrom_handler(decoded, params, one_trace)
           
-        elif(decoded =='ether transfer'):
+        elif(decoded =='ether transfer(EOA)'):
             decoded_params= {}
             decoded_params['from']= one_trace['from']
             decoded_params['to'] = one_trace['to']
@@ -360,7 +371,7 @@ class Transfer_Decoder():
             decoded_params['value']=   int(one_trace['value'], 16)/10**18
             decoded_params['function'] = decoded
 
-        elif(decoded=='unwrapping'):
+        elif(decoded=='ether transfer(contract)'):
             decoded_params= {}
             decoded_params['from']= one_trace['from']
             decoded_params['to'] = one_trace['to']
