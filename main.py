@@ -5,8 +5,9 @@ import logging
 from dotenv import load_dotenv
 from web3 import Web3
 import pandas as pd
-import etl_pipeline, decode_pipeline
-from arg_parser import get_args
+sys.path.append('./pipeline')
+import etl_pipeline, decode_pipeline, price_fetch_pipeline
+import arg_parser 
 
 #loading API key
 load_dotenv()
@@ -20,13 +21,13 @@ w3 = Web3(Web3.HTTPProvider(apis['RPC_PROVIDER']))
 assert w3.is_connected(), 'please check rpc provider configuration, web3 connection is not established'
 
 # parsing arguments
-args = get_args()
+args = arg_parser.get_args()
 
 
 # Configure logging
 if(not(os.path.exists('./logs'))):
     os.makedirs('./logs')
-logging.basicConfig(filename=f'./logs/eth_etl_{args.job_id}.log', level=logging.INFO, format='%(asctime)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S', filemode='w')
+logging.basicConfig(filename=f'./logs/job_{args.job_id}.log', level=logging.INFO, format='%(asctime)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S', filemode='w')
 # for terminal outputs
 sh = logging.StreamHandler()
 formatter = logging.Formatter('%(asctime)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S')
@@ -37,10 +38,13 @@ logging.getLogger().addHandler(sh)
 logger = logging.getLogger(__name__)
 
 # run the job 
-decode_jobs = ['decode_trace']
-if(args.job in decode_jobs):
-    decode_pipeline.run_job(args = args, w3=w3, apis = apis)
-else:
-    etl_pipeline.run_job(args = args, w3=w3, apis = apis)
+pipeline = arg_parser.job_parser(args)
 
-logger.info(f"job succesfully done, please check eth_etl_{args.job_id}.log for the job log")
+if(pipeline == 'eth_etl'):
+    etl_pipeline.run_job(args = args, w3=w3, apis = apis)
+elif(pipeline == 'decode'):
+    decode_pipeline.run_job(args = args, w3=w3, apis = apis)
+elif(pipeline == 'price_fetch'):
+    price_fetch_pipeline.run_job(args = args, w3=w3, apis = apis)
+
+logger.info(f"job succesfully done, please check job_{args.job_id}.log for the job log")

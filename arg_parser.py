@@ -43,10 +43,6 @@ def get_args():
     trf_parser.add_argument("--addr", "-a",type=str, nargs='+',required=True, help="Contract address of interest (from)")
     trf_parser.add_argument("--job_id", "-j", type=str, default='0', help="job id for running multiple jobs")
 
-
-
-
-
     # apply filter (if supported by the rpc provider) to get addrs/transactions/traces 
     filter_parser = subparsers.add_parser("apply_filter", help="apply filter on the range of blocknumbers to query addrs/transactions/traces")
     filter_parser.add_argument("--job_name", "-jn", type=str, required=True, help="job to run for each match in the filter. check help (-h) instructions")
@@ -78,14 +74,64 @@ def get_args():
     filter_parser.add_argument("--tx_pos", "-p", type=str, nargs='+', required=True,help="target transaction position")
     filter_parser.add_argument("--job_id", "-j", type=str, default='0', help="job id for running multiple jobs")
     
+
+
+
+    ### decoding ###    
+
     # after trace_out job was executed, decode exported inputs with a specific search keyword for function names 
     filter_parser = subparsers.add_parser("decode_trace", help="decode exported inputs (trace_out) with a specific search keyword for function names")
     filter_parser.add_argument("--search_keyword", "-s", type=str, required=True, help="search keyword for function names")
     filter_parser.add_argument("--exported_file", "-e", type=str, required=True,help="exported traces (csv file)")
     filter_parser.add_argument("--job_id", "-j", type=str, default='0', help="job id for running multiple jobs")
     
-    
-    
+    ### price fetching ###
+
+    filter_parser = subparsers.add_parser("price_current", help="fetch the most recent token price")
+    filter_parser.add_argument("--source", "-s", type=str, required=True, help="source for the price (e.g., defillama, coingecko)")
+    filter_parser.add_argument("--token", "-t", type=str, nargs = '+', required=True,help="token address(es) or path to a csv file")
+    filter_parser.add_argument("--job_id", "-j", type=str, default='0', help="job id when running multiple jobs")
+
+    filter_parser = subparsers.add_parser("price_historical", help="fetch price time series data")
+    filter_parser.add_argument("--source", "-s", type=str, required=True, help="source for the price (e.g., defillama, coingecko)")
+    filter_parser.add_argument("--token", "-t", type=str, nargs = '+', required=True,help="token address(es) or path to a csv file")
+    filter_parser.add_argument("--start_block", "-sb", type=str, required=True,help="start block")
+    filter_parser.add_argument("--end_block", "-eb", type=str, required=True,help="last block")
+    filter_parser.add_argument("--interval", "-i", type=int, required=False, default = 1, help="interval for fetch prices (in days, defaults to 1 day)")
+    filter_parser.add_argument("--job_id", "-j", type=str, default='0', help="job id when running multiple jobs")
+   
     return parser.parse_args()
 
 
+# fetch the right pipeline for the given job name
+def job_parser(args):
+    etl_jobs = ['contracts_from', 'contracts_to', 'txs_to', 'traces_to', 'txs_from', 'traces_from', 'apply_filter', 'get_logs', 'trace_filter', 'trace_out']
+    decode_jobs = ['decode_trace']
+    price_fetch_jobs = ['price_current', 'price_historical']
+
+    if(args.job in etl_jobs):
+        pipeline = 'eth_etl'
+    elif(args.job in decode_jobs):
+        pipeline = 'decode'
+    elif(args.job in price_fetch_jobs):
+        pipeline = 'price_fetch'
+    else:
+        raise ValueError(f'job alias : {args.job} not recognized by the parser')    
+
+    return pipeline
+
+# debugging 
+"""
+import argparse
+
+filter_parser = argparse.ArgumentParser()
+# traces by applying filters (2k range limit) 
+filter_parser.add_argument("--source", "-s", type=str, required=True, help="source for the price (e.g., defillama, coingecko)")
+filter_parser.add_argument("--token", "-t", type=str, nargs = '+', required=True,help="token address(es) or path to a csv file")
+filter_parser.add_argument("--job_id", "-j", type=str, default='0', help="job id when running multiple jobs")
+args = argparse.Namespace(job= 'price_current', source= 'defillama', token = '/home/takim/work/blockchain-graph-analytics/intermediate_results/transfer_balance/230923/unique_tokens.csv',  job_id= '0')
+
+
+
+
+"""
