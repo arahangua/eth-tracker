@@ -98,8 +98,8 @@ class Defillama(Price_generic):
        
     def parse_token_addrs(self, args):
 
-        if('csv' in args.token):
-            token_addrs = pd.read_csv(args.token)['tokens'].tolist() 
+        if('csv' in args.token[0]):
+            token_addrs = pd.read_csv(args.token[0])['tokens'].tolist() 
         else:
             token_addrs = args.token
         
@@ -114,8 +114,8 @@ class Defillama(Price_generic):
     
     def parse_token_addrs_batch(self, args, batch_size = 100):
 
-        if('csv' in args.token):
-            token_addrs = pd.read_csv(args.token)['tokens'].tolist() 
+        if('csv' in args.token[0]):
+            token_addrs = pd.read_csv(args.token[0])['tokens'].tolist() 
         else:
             token_addrs = args.token
         

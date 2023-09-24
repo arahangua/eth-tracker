@@ -27,7 +27,7 @@ def run_job(args, w3, apis):
     if args.job=='price_current':
        
         logger.info(f"getting the most most recent token price (https://defillama.com/docs/api)")
-        if('csv' in args.token):
+        if('csv' in args.token[0]):
             logger.info(f'found a csv file as an input to \'token\' input proceeding in batch processing mode.')
             pf.get_current_price_batch(args)
         else:
