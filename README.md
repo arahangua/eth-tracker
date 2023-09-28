@@ -50,7 +50,7 @@ Create "batch_jobs.txt" with each line corresponding to ETL job (see above)(chec
 Open subproecss_handler.py and change job parameters (e.g., set process_n = 30) <br>
 then run
 ```
-python subprocess_handler.py
+python subprocess_handler.py -b <your batch script>
 ```
 
 **4. Notes on Decoding Inputs (tx/trace)**
