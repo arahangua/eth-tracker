@@ -20,12 +20,12 @@ python main.py -h
 example output:
 
 ```
-usage: main.py [-h] {contracts_from,contracts_to,txs_to,traces_to,txs_from,traces_from,apply_filter,get_logs,trace_filter} ...
+usage: main.py [-h] {contracts_from,contracts_to,txs_to,traces_to,txs_from,traces_from,apply_filter,get_logs,trace_filter,trace_out,decode_trace,price_current} ...
 
 eth ETL program
 
 positional arguments:
-  {contracts_from,contracts_to,txs_to,traces_to,txs_from,traces_from,apply_filter,get_logs,trace_filter,trace_out}
+  {contracts_from,contracts_to,txs_to,traces_to,txs_from,traces_from,apply_filter,get_logs,trace_filter,trace_out,decode_trace,price_current}
                         Choose a job to execute.
     contracts_from      export contracts that are called from the input contract
     contracts_to        export contracts that make calls to the input contract
@@ -36,7 +36,9 @@ positional arguments:
     apply_filter        apply filter on the range of blocknumbers to query addrs/transactions/traces
     get_logs            apply filter on the range of blocknumbers to get event logs
     trace_filter        apply trace filter on the range of blocknumbers to get traces
-    trace_out           complete export of a trace given a blocknumber and transaction position
+    trace_out           full export of a trace given a blocknumber and transaction position
+    decode_trace        decode exported inputs (trace_out) with a specific search keyword for function names
+    price_current       fetch the most recent token price
 
 options:
   -h, --help            show this help message and exit

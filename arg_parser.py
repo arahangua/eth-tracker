@@ -92,13 +92,14 @@ def get_args():
     filter_parser.add_argument("--token", "-t", type=str, nargs = '+', required=True,help="token address(es) or path to a csv file")
     filter_parser.add_argument("--job_id", "-j", type=str, default='0', help="job id when running multiple jobs")
 
-    filter_parser = subparsers.add_parser("price_historical", help="fetch price time series data")
-    filter_parser.add_argument("--source", "-s", type=str, required=True, help="source for the price (e.g., defillama, coingecko)")
-    filter_parser.add_argument("--token", "-t", type=str, nargs = '+', required=True,help="token address(es) or path to a csv file")
-    filter_parser.add_argument("--start_block", "-sb", type=str, required=True,help="start block")
-    filter_parser.add_argument("--end_block", "-eb", type=str, required=True,help="last block")
-    filter_parser.add_argument("--interval", "-i", type=int, required=False, default = 1, help="interval for fetch prices (in days, defaults to 1 day)")
-    filter_parser.add_argument("--job_id", "-j", type=str, default='0', help="job id when running multiple jobs")
+    # wip
+    # filter_parser = subparsers.add_parser("price_historical", help="fetch price time series data")
+    # filter_parser.add_argument("--source", "-s", type=str, required=True, help="source for the price (e.g., defillama, coingecko)")
+    # filter_parser.add_argument("--token", "-t", type=str, nargs = '+', required=True,help="token address(es) or path to a csv file")
+    # filter_parser.add_argument("--start_block", "-sb", type=str, required=True,help="start block")
+    # filter_parser.add_argument("--end_block", "-eb", type=str, required=True,help="last block")
+    # filter_parser.add_argument("--interval", "-i", type=int, required=False, default = 1, help="interval for fetch prices (in days, defaults to 1 day)")
+    # filter_parser.add_argument("--job_id", "-j", type=str, default='0', help="job id when running multiple jobs")
    
     return parser.parse_args()
 
