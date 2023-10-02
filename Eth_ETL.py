@@ -195,7 +195,7 @@ class Eth_tracker():
             return contract_abi, 'contract'
         
 
-    def decode_input(self, input, contract_addr, contract_abi):
+    def decode_input(self, hex_input, contract_addr, contract_abi):
         contract = self.w3.eth.contract(address=contract_addr, abi=contract_abi)
 
         # check if it is a proxy contract 
@@ -218,7 +218,7 @@ class Eth_tracker():
             
             if(impl_addr=='0x0000000000000000000000000000000000000000'):
                 logger.info(f'found a proxy but {contract_addr} is not using openzeppelin upgradable contract... moving on')
-                func = input[:10]
+                func = hex_input[:10]
                 params = 'unknown_proxy' 
                 return func, params
 
@@ -228,7 +228,7 @@ class Eth_tracker():
                 contract_abi, verdict = self.get_contract_abi(impl_addr, ETHERSCAN_API=self.apis['ETHERSCAN_API'])
                 contract = self.w3.eth.contract(address=contract_addr, abi=contract_abi)
         
-        func, params = contract.decode_function_input(input)
+        func, params = contract.decode_function_input(hex_input)
 
         return func, params
     
@@ -685,7 +685,7 @@ class Eth_tracker():
 
                     
                     # return decoded input
-                    if(params=='unknown_proxy'):
+                    if(type(params)!= dict): # abnormal decoded parameters
                         decoded = func
                     else:
                         decoded = func.function_identifier
@@ -693,7 +693,7 @@ class Eth_tracker():
             # if input is 0x, need to check a value. If value is also 0x then likely a fallback function and if value is not 0x then likely a unwrapping (ether transfer) is happening.
             else:
 
-                if(len(trace_value)>2):
+                if(len(trace_value)>2 and trace_value!='0x0'): # to be extra strict
                     eth_convert = int(trace_value, 16)/10**18
                     logger.info(f'likely a unwrapping event (ether transfer) {eth_convert:.3f} ETH')
                     decoded = 'ether transfer(contract)'    
@@ -831,7 +831,7 @@ filter_parser.add_argument("--end_block", '-eb', type=str, required=True, help="
 filter_parser.add_argument("--addr", "-a", type=str, nargs='+', required=True,help="Contract address of interest")
 filter_parser.add_argument("--pos", "-p", type=str, nargs='+', required=True,help="Contract address position")
 filter_parser.add_argument("--job_id", "-j", type=str, default='0', help="job id for running multiple jobs")
-args = argparse.Namespace(start_block='17930329',end_block = '17930428', addr=['0xE4000004000bd8006e00720000d27d1FA000d43e'], pos = 'from', job_id= '0')
+args = argparse.Namespace(start_block='16308390',end_block = '16308489', addr=['0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2'], pos = 'to', job_id= '0')
 
 
 # export all traces given a blocknumber and a target transaction position 
