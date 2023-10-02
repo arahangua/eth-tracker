@@ -140,9 +140,31 @@ class Eth_tracker():
                 logger.info(f"no interacting addresses were found for the contract {search_entry}")
 
 
+    def get_proxy_mapping(self, addr:str, ETHERSCAN_API=None):
 
+        # make/check local cache 
+        cached_file = f"./proxy_mapping/{addr}.txt"
+        if os.path.exists(cached_file):
+            with open(cached_file, 'r') as infile:
+                impl_addr = json.load(infile)
+                logger.info(f"using cached bytecode (implementation contract) {impl_addr}")
+                
+        else:
+             # for openzeppelin upgradable template
+            padded = Web3.toHex(self.w3.eth.get_storage_at(addr, "0x7050c9e0f4ca769c69bd3a8ef740bc37934f8e2c036e5a723fd8ee048ed3f8c3"))
+            padded = padded[-42:]
+            impl_addr = '0x' + padded[2:]
+            
+            # in case, needed we can check the value of impl_addr here.
 
+            logger.info(f'saving proxy mapping for {addr}')
+            utils.check_dir(f"./proxy_mapping")
+            with open(cached_file, 'w') as outfile:
+                json.dump(impl_addr, outfile)
+                
+        return impl_addr
 
+            
 
     def get_contract_abi(self, addr:str, ETHERSCAN_API=None):
         
@@ -185,10 +207,15 @@ class Eth_tracker():
             # somehow nowadays proxy contracts prevent clients from calling implementation function directly.
             #implementation_address = contract.functions.implementation().call()
 
+            # check first if there is cached data ("get_storage_at" can be expensive in terms of compute unit)
+
+            impl_addr = self.get_proxy_mapping(contract_addr, ETHERSCAN_API=self.apis['ETHERSCAN_API'])
+
             # for openzeppelin upgradable template
-            padded = Web3.toHex(self.w3.eth.get_storage_at(contract_addr, "0x7050c9e0f4ca769c69bd3a8ef740bc37934f8e2c036e5a723fd8ee048ed3f8c3"))
-            padded = padded[-42:]
-            impl_addr = '0x' + padded[2:]
+            # padded = Web3.toHex(self.w3.eth.get_storage_at(contract_addr, "0x7050c9e0f4ca769c69bd3a8ef740bc37934f8e2c036e5a723fd8ee048ed3f8c3"))
+            # padded = padded[-42:]
+            # impl_addr = '0x' + padded[2:]
+            
             if(impl_addr=='0x0000000000000000000000000000000000000000'):
                 logger.info(f'found a proxy but {contract_addr} is not using openzeppelin upgradable contract... moving on')
                 func = input[:10]
@@ -573,8 +600,10 @@ class Eth_tracker():
                 length = len(data['result'])
                 logger.info(f'fetched {length} traces')
                 return data['result']
+            
         
         logger.info(f'no traces were found for the search range : {args.start_block} - {args.end_block}')
+        logger.error(f'response code : {response.status_code}')
         return None
         
     def format_traces(self, traces):
