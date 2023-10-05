@@ -62,8 +62,8 @@ Most jobs attempt to "casually" fetch ABIs from Etherscan for input data. If the
 
 ***but for the "trace_filter" and "trace_out" jobs:***
 
-- It always exports the raw input.<br>
-- If decoding using ABI is not possible, it aims to export at least the function identifier by:<br>
+- The job always exports the raw input.<br>
+- The job aims to export at least the function identifier of the input by (executes the following in this sequence):<br>
   1. Checking Etherscan for ABIs.<br>
   2. If the above fails, it checks the Ethereum public byte library for the function signature. <br>
   3. If all attempts fail, it still exports the hex signature of the function extracted from the input data.
