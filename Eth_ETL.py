@@ -342,15 +342,19 @@ class Eth_tracker():
         cached_file = f"./abis/{contract_addr}.txt"
         if os.path.exists(cached_file):
             with open(cached_file, 'r') as infile:
-                abi_result = json.load(infile)
-                if RETRY_UNVERIFIED==False and abi_result=='Contract source code not verified': # --> abi not usable.
-                    logger.info(f'ABI fetching step is ignored for {contract_addr} as previous attempts were not successful. In case you want to force fetching please set global var RETRY_UNVERIFIED to True in Eth_ETL.py')
-                    return 
-                else:
-                    if abi_result!='Max rate limit reached': # checks for previous rate limit problem
-                        print("using cached abi")
-                        return abi_result
-                    
+                try:
+                    abi_result = json.load(infile)
+                    if RETRY_UNVERIFIED==False and abi_result=='Contract source code not verified': # --> abi not usable.
+                        logger.info(f'ABI fetching step is ignored for {contract_addr} as previous attempts were not successful. In case you want to force fetching please set global var RETRY_UNVERIFIED to True in Eth_ETL.py')
+                        return 
+                    else:
+                        if not('Max rate limit reached' in abi_result): # checks for previous rate limit problem
+                            print("using cached abi")
+                            return abi_result
+                except Exception as e:
+                    logger.error(e)
+                    logger.error(f'saved ABI was not in a proper format for: {contract_addr}')
+
         url = f"https://api.etherscan.io/api?module=contract&action=getabi&address={contract_addr}&apikey={ETHERSCAN_API}"
         response = requests.get(url)
         res = response.json()
@@ -619,9 +623,12 @@ class Eth_tracker():
             tx['blockHash'] = tr['blockHash']
             tx['blockNumber'] = tr['blockNumber']
             if(tr['result'] is None): # some edge case where trace itself is not none but 'result' is nonetype
-                logger.error(f'spotted a failed execution skipping to the next trace')
+                logger.error(f'spotted a failed execution skipping to the next trace: result field didn\'t exist')
                 continue
             tx['gasUsed'] = tr['result']['gasUsed']
+            if(not('output' in tr['result'])):
+                logger.error(f'spotted a failed execution skipping to the next trace: output field didn\'t exist')
+                continue
             tx['output'] = tr['result']['output']
             tx['subtraces']= tr['subtraces']
             tx['traceAddress']= tr['traceAddress']
@@ -670,7 +677,7 @@ class Eth_tracker():
         if(verdict=='contract'):
             if(len(hex_input)>2): #handling null and 0x
                 if(contract_abi is None):
-                    logger.info(f'fetching ABI failed. Trying to query public byte library')
+                    logger.info(f'fetching ABI failed. Trying query public byte library')
                     decoded = self.public_library_check(hex_input)
                 
                 else: # in case we have a matching ABI

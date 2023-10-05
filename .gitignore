@@ -149,3 +149,4 @@ batch_job*.txt
 abis/
 bytecode/
 calls/
+proxy_mapping/
