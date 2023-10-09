@@ -24,8 +24,8 @@ def run_job(args, w3, apis):
         
 
         if(args.search_keyword == 'transfer'):
-           
-            result = td.decode_trace_csv(args.exported_file, args.search_keyword)
+            logger.info(f'use_known_pattern = {args.transfer_func_patterns}')
+            result = td.decode_trace_csv(args.exported_file, args.search_keyword, use_known_pattern = args.transfer_func_patterns)
             # save it
             parsed= args.exported_file.split('/')
             parent_dir = '/'.join(parsed[:-1])

@@ -95,40 +95,11 @@ class Transfer_Decoder():
 ####################################################################################################
 # below are decoding related functions 
 
-    def decode_input(self, input, contract_addr, contract_abi):
-        contract = self.w3.eth.contract(address=contract_addr, abi=contract_abi)
-
-        # check if it is a proxy contract 
-        impl_check = 'implementation' in contract_abi.lower()
-        upgrade_check = 'upgrade' in contract_abi.lower()
-        verdict = impl_check and upgrade_check
-        if(verdict):
-            logger.info(f'found a proxy contract ({contract_addr}). Fetching the implementation function to get the matching contract (for now only openzeppelin upgradable proxy is handled.)')
-            # somehow nowadays proxy contracts prevent clients from calling implementation function directly.
-            #implementation_address = contract.functions.implementation().call()
-
-            # for openzeppelin upgradable template
-            padded = Web3.toHex(self.w3.eth.get_storage_at(contract_addr, "0x7050c9e0f4ca769c69bd3a8ef740bc37934f8e2c036e5a723fd8ee048ed3f8c3"))
-            padded = padded[-42:]
-            impl_addr = '0x' + padded[2:]
-            if(impl_addr=='0x0000000000000000000000000000000000000000'):
-                logger.info(f'found a proxy but {contract_addr} is not using openzeppelin upgradable contract... moving on')
-                func = input[:10]
-                params = 'unknown_proxy' 
-                return func, params
-
-            else:
-                logger.info(f'found a proxy contract that probably is using openzeppelin upgradable contract')
-                impl_addr = Web3.to_checksum_address(impl_addr)
-                contract_abi, verdict = self.get_contract_abi(impl_addr, ETHERSCAN_API=self.apis['ETHERSCAN_API'])
-                contract = self.w3.eth.contract(address=contract_addr, abi=contract_abi)
-        
-        func, params = contract.decode_function_input(input)
-        
-        return func, params
+   
     
     # main function that handles different transfer functions
-    def decode_trace_csv(self, csv_file, search_str='transfer'):
+    def decode_trace_csv(self, csv_file, search_str='transfer', use_known_pattern=True):
+        
         csv_df = pd.read_csv(csv_file)
 
         # first get unique transaction positions logged in this csv. 
@@ -164,7 +135,7 @@ class Transfer_Decoder():
                 decoded['blockNumber'] = row['blockNumber']
                 decoded['tx_pos'] = row['transactionPosition']
                 
-                row_decoded = self.trace_decoding_handler(row)
+                row_decoded = self.trace_decoding_handler(row, use_known_pattern = use_known_pattern)
                 if(row_decoded is not None):
                     for k, v in row_decoded.items():
                         decoded[k] = v
@@ -213,7 +184,7 @@ class Transfer_Decoder():
 
     
         
-    def trace_decoding_handler(self, one_trace):
+    def trace_decoding_handler(self, one_trace, use_known_pattern):
         contract_addr = one_trace['to']
         hex_input = one_trace['input']
         trace_value = one_trace['value']
@@ -275,12 +246,71 @@ class Transfer_Decoder():
                 decoded = 'ether transfer(EOA)'
 
         # prepare decoded variable from the given the above case handling 
-        decoded_params = self.decode_input_from_signature(decoded, params, one_trace)
+        decoded_params = self.decode_input_from_signature(decoded, params, one_trace, use_known_pattern)
         
         
         return  decoded_params
     
+    def get_proxy_mapping(self, addr:str, ETHERSCAN_API=None):
 
+        # make/check local cache 
+        cached_file = f"./proxy_mapping/{addr}.txt"
+        if os.path.exists(cached_file):
+            with open(cached_file, 'r') as infile:
+                impl_addr = json.load(infile)
+                logger.info(f"using cached bytecode (implementation contract) {impl_addr}")
+                
+        else:
+             # for openzeppelin upgradable template
+            padded = Web3.toHex(self.w3.eth.get_storage_at(addr, "0x7050c9e0f4ca769c69bd3a8ef740bc37934f8e2c036e5a723fd8ee048ed3f8c3"))
+            padded = padded[-42:]
+            impl_addr = '0x' + padded[2:]
+            
+            # in case, needed we can check the value of impl_addr here.
+
+            logger.info(f'saving proxy mapping for {addr}')
+            self.check_dir(f"./proxy_mapping")
+            with open(cached_file, 'w') as outfile:
+                json.dump(impl_addr, outfile)
+                
+        return impl_addr
+    
+    def decode_input(self, hex_input, contract_addr, contract_abi):
+        contract = self.w3.eth.contract(address=contract_addr, abi=contract_abi)
+
+        # check if it is a proxy contract 
+        impl_check = 'implementation' in contract_abi.lower()
+        upgrade_check = 'upgrade' in contract_abi.lower()
+        verdict = impl_check and upgrade_check
+        if(verdict):
+            logger.info(f'found a proxy contract ({contract_addr}). Fetching the implementation function to get the matching contract (for now only openzeppelin upgradable proxy is handled.)')
+            # somehow nowadays proxy contracts prevent clients from calling implementation function directly.
+            #implementation_address = contract.functions.implementation().call()
+
+            # check first if there is cached data ("get_storage_at" can be expensive in terms of compute unit)
+
+            impl_addr = self.get_proxy_mapping(contract_addr, ETHERSCAN_API=self.apis['ETHERSCAN_API'])
+
+            # for openzeppelin upgradable template
+            # padded = Web3.toHex(self.w3.eth.get_storage_at(contract_addr, "0x7050c9e0f4ca769c69bd3a8ef740bc37934f8e2c036e5a723fd8ee048ed3f8c3"))
+            # padded = padded[-42:]
+            # impl_addr = '0x' + padded[2:]
+            
+            if(impl_addr=='0x0000000000000000000000000000000000000000'):
+                logger.info(f'found a proxy but {contract_addr} is not using openzeppelin upgradable contract... moving on')
+                func = hex_input[:10]
+                params = 'unknown_proxy' 
+                return func, params
+
+            else:
+                logger.info(f'found a proxy contract that probably is using openzeppelin upgradable contract')
+                impl_addr = Web3.to_checksum_address(impl_addr)
+                contract_abi, verdict = self.get_contract_abi(impl_addr, ETHERSCAN_API=self.apis['ETHERSCAN_API'])
+                contract = self.w3.eth.contract(address=contract_addr, abi=contract_abi)
+        
+        func, params = contract.decode_function_input(hex_input)
+
+        return func, params
     # not used for now.
     def parse_dtype_from_sig(self, text_signature):
         pass
@@ -351,15 +381,19 @@ class Transfer_Decoder():
         return call_results['symbol'], call_results['decimal']
 
     # all ether transfers and standard erc20 transfers will be handled.
-    def decode_input_from_signature(self, decoded, params, one_trace):
+    def decode_input_from_signature(self, decoded, params, one_trace, use_known_pattern=True):
         
         # erc20 transfer
         if(decoded == 'transfer'):
-            decoded_params = self.transfer_handler(decoded, params, one_trace)
-        
+            if(use_known_pattern):
+                decoded_params = self.transfer_handler(decoded, params, one_trace)
+            else:
+                decoded_params = self.transfer_handler_unsafe(decoded, params, one_trace)
         elif(decoded == 'transferFrom'):
-            
-            decoded_params = self.transferFrom_handler(decoded, params, one_trace)
+            if(use_known_pattern):
+                decoded_params = self.transferFrom_handler(decoded, params, one_trace)
+            else:
+                decoded_params = self.transferFrom_handler_unsafe(decoded, params, one_trace)
           
         elif(decoded =='ether transfer(EOA)'):
             decoded_params= {}
@@ -388,7 +422,25 @@ class Transfer_Decoder():
             
 
         return decoded_params
+    def transfer_handler_unsafe(self, decoded, params, one_trace):
+        # assumption : param dict is always in to, value sequence
+        decoded_params= {}
 
+        key_list = list(params.keys())
+        logger.info(f'the transfer function is using the following keys : {key_list}')
+        decoded_params['from']= one_trace['from']
+        decoded_params['to'] = params[key_list[0]]
+        decoded_params['token_addr']= one_trace['to']
+        # get token symbol and denominator
+        symbol, decimal = self.get_erc20_denom(decoded_params['token_addr'])
+        decoded_params['symbol'] = symbol
+        decoded_params['decimal'] = decimal
+        
+        token_amt = params[key_list[1]]
+        decoded_params['value'] =  int(token_amt)/10**int(decimal)
+        decoded_params['function'] = decoded
+        return decoded_params
+    
     def transfer_handler(self, decoded, params, one_trace):
         decoded_params= {}
         
@@ -450,6 +502,8 @@ class Transfer_Decoder():
             decoded_params['value']=  int(params['rawAmount'])/10**int(decimal)
         elif('tokens' in params):
             decoded_params['value']=  int(params['tokens'])/10**int(decimal)
+        elif('tokenId' in params):
+            decoded_params['value']=  int(params['tokenId'])/10**int(decimal)
         
         
 
@@ -461,6 +515,26 @@ class Transfer_Decoder():
             
         decoded_params['function'] = decoded
         return decoded_params
+    
+    def transferFrom_handler_unsafe(self, decoded, params, one_trace):
+        # assumption : param dict is always in from, to, value sequence
+        decoded_params= {}
+
+        key_list = list(params.keys())
+        logger.info(f'the transferFrom function is using the following keys : {key_list}')
+        decoded_params['from'] = params[key_list[0]]
+        decoded_params['to'] = params[key_list[1]]
+        decoded_params['token_addr']= one_trace['to']
+        # get token symbol and denominator
+        symbol, decimal = self.get_erc20_denom(decoded_params['token_addr'])
+        decoded_params['symbol'] = symbol
+        decoded_params['decimal'] = decimal
+        
+        token_amt = params[key_list[2]]
+        decoded_params['value'] =  int(token_amt)/10**int(decimal)
+        decoded_params['function'] = decoded
+        return decoded_params
+
 
     def transferFrom_handler(self, decoded, params, one_trace):
         decoded_params= {}
@@ -531,6 +605,8 @@ class Transfer_Decoder():
             decoded_params['value']=  int(params['rawAmount'])/10**int(decimal)
         elif('tokens' in params):
             decoded_params['value']=  int(params['tokens'])/10**int(decimal)
+        elif('tokenId' in params):
+            decoded_params['value']=  int(params['tokenId'])/10**int(decimal)
         
         else:
             raise ValueError(f'new syntax for transferFrom function detected : {params}')
