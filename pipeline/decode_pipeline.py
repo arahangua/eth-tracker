@@ -20,12 +20,16 @@ def run_job(args, w3, apis):
        
         logger.info(f"decoding exported traces with a search keyword {args.search_keyword}, decoding : {args.exported_file}")
         
+        # fetching the parent dir
+        parsed= args.exported_file.split('/')
+        parent_dir = '/'.join(parsed[:-1])
+
         #initialize transfer decoder
         
 
         if(args.search_keyword == 'transfer'):
             logger.info(f'use_known_pattern = {args.transfer_func_patterns}')
-            result = td.decode_trace_csv(args.exported_file, args.search_keyword, use_known_pattern = args.transfer_func_patterns)
+            result = td.decode_trace_csv(args.exported_file,  parent_dir, args.search_keyword, use_known_pattern = args.transfer_func_patterns)
             # save it
             parsed= args.exported_file.split('/')
             parent_dir = '/'.join(parsed[:-1])

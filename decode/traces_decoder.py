@@ -22,6 +22,21 @@ now = datetime.datetime.now()
 DATE = now.strftime('%d%m%y')
 RETRY_UNVERIFIED=False
 
+# function parameter patterns
+
+# for transfer functions
+VALUE_PATTERNS = ['_transferTokensWithDecimal', 'amount256', '_val', '_token', 'IODflowAmount', 'tokenId_', 'id', '_id', 'tokenID', '_tokens', 'numTokens', 'share', 'Amount', 'amount', '_amount', 'amount_', 'amt', 'wad', '_wad', 'value', '_value','rawAmount','tokens','tokenId', '_tokenId']
+TO_PATTERNS = ['findingAllRecipient', 'buyer', 'recipient', '_recipient', 'recipient_', 'dst', '_dst', 'dst_', 'to', '_to', 'to_', 'toAddress', 'target', 'receiver', '_receiver']
+FROM_PATTERNS = ['_holder', 'owner', '_sender', 'sender', 'sender_', '_src', 'src', 'src_','_from', 'from', 'from_', 'holder', 'spender']
+        
+# below contracts do not follow the usual ERC20 format but have 'transfer' functions        
+IRREGULAR_CONTRACTS = ['0xc385e90da38f8798f5a5512d415a13c87e0d6265', #BenDAO
+                       '0x75a8b7c0b22d973e0b46cfbd3e2f6566905aa79f', #rarible erc1155
+                       '0xbb7829bfdd4b557eb944349b2e2c965446052497', #rarible erc721
+                       ]
+
+
+
 
 ### util class for controlling eth-tracker class. handles time conversions and simple path handling.
 
@@ -98,7 +113,7 @@ class Transfer_Decoder():
    
     
     # main function that handles different transfer functions
-    def decode_trace_csv(self, csv_file, search_str='transfer', use_known_pattern=True):
+    def decode_trace_csv(self, csv_file, parent_dir, search_str='transfer', use_known_pattern=True):
         
         csv_df = pd.read_csv(csv_file)
 
@@ -134,11 +149,23 @@ class Transfer_Decoder():
                 decoded['init_contract'] = init_contract
                 decoded['blockNumber'] = row['blockNumber']
                 decoded['tx_pos'] = row['transactionPosition']
-                
-                row_decoded = self.trace_decoding_handler(row, use_known_pattern = use_known_pattern)
+
+                # some contracts are considered irregular already from the glance of etherscan.
+                if(row['to'].lower() in IRREGULAR_CONTRACTS):
+                    row_decoded = 'irregular_contract'
+                else:
+                    row_decoded = self.trace_decoding_handler(row, use_known_pattern = use_known_pattern)
                 if(row_decoded is not None):
-                    for k, v in row_decoded.items():
-                        decoded[k] = v
+                    if(row_decoded == 'irregular_contract'):
+                        # save this contract for later inspection
+                        txt_name = f'{parent_dir}/irregular_contracts.txt'
+                        irregular= row['to']
+                        with open(txt_name, "a") as f:
+                            f.write(irregular + "\n") 
+                        logger.info(f'saved(appended) the address of the irregular contract ({irregular}) to {txt_name}')
+                    else:
+                        for k, v in row_decoded.items():
+                            decoded[k] = v
                 else:
                     logger.error(f'continuing to the next trace as decoding was unsuccessful')
                     continue
@@ -218,11 +245,7 @@ class Transfer_Decoder():
                         decoded = self.public_library_check(hex_input)
                         
                     # return decoded input
-                    if(params=='unknown_proxy'):
-                        decoded = func
-                    elif(params=='ABI_reading_problem'):
-                        decoded = func
-                    else:
+                    if(type(params)==dict): # for normal decoded parameters
                         decoded = func.function_identifier
             # if input is 0x, need to check a value. If value is also 0x then likely a fallback function and if value is not 0x then likely a unwrapping (ether transfer) is happening.
             else:
@@ -384,12 +407,25 @@ class Transfer_Decoder():
     def decode_input_from_signature(self, decoded, params, one_trace, use_known_pattern=True):
         
         # erc20 transfer
+       
         if(decoded == 'transfer'):
+            # check abnormal parameter length
+            if(len(params)<2):
+                logger.error(f'found abnormal parameter length : {params}')
+                decoded_params= None
+                return decoded_params
+
             if(use_known_pattern):
                 decoded_params = self.transfer_handler(decoded, params, one_trace)
             else:
                 decoded_params = self.transfer_handler_unsafe(decoded, params, one_trace)
         elif(decoded == 'transferFrom'):
+            # check abnormal parameter length
+            if(len(params)<2):
+                logger.error(f'found abnormal parameter length : {params}')
+                decoded_params= None
+                return decoded_params
+
             if(use_known_pattern):
                 decoded_params = self.transferFrom_handler(decoded, params, one_trace)
             else:
@@ -417,7 +453,7 @@ class Transfer_Decoder():
 
       
         else:
-            logger.error(f'found unhandled function (or signature): {decoded}')
+            logger.error(f'found an unhandled function (or signature): {decoded}')
             decoded_params= None
             
 
@@ -443,34 +479,16 @@ class Transfer_Decoder():
     
     def transfer_handler(self, decoded, params, one_trace):
         decoded_params= {}
-        
-        if('recipient' in params):
-            decoded_params['to'] = params['recipient']
-        elif('_recipient' in params):
-            decoded_params['to'] = params['_recipient']
-        elif('recipient_' in params):
-            decoded_params['to'] = params['recipient_']
-        # src, dst, wad case
-        elif('dst' in params):
-            decoded_params['to'] = params['dst']
-        elif('_dst' in params):
-            decoded_params['to'] = params['_dst']
-
-        elif('to' in params):
-            decoded_params['to'] = params['to']
-        
-        elif('_to' in params):
-            decoded_params['to'] = params['_to']
-
-        elif('target' in params):
-            decoded_params['to'] = params['target']
-
-        elif('receiver' in params):
-            decoded_params['to'] = params['receiver']
-
-        
-        else:
-            raise ValueError(f'new syntax for transfer function detected : {params}')
+        to_check = False
+        for pattern in TO_PATTERNS:
+            if(pattern in params):
+                decoded_params['to'] = params[pattern]
+                to_check = True
+        # check if to is set correctly
+        if(not(to_check)):
+            logger.error(f'the current function parameters do not match predefined \'to\' patterns, skipping the current line and saving this contract address')
+            decoded_params = 'irregular_contract'
+            return decoded_params
         
         decoded_params['from']= one_trace['from']
         decoded_params['token_addr']= one_trace['to']
@@ -479,36 +497,16 @@ class Transfer_Decoder():
         symbol, decimal = self.get_erc20_denom(decoded_params['token_addr'])
         decoded_params['symbol'] = symbol
         decoded_params['decimal'] = decimal
-        
-        if('amount' in params):
-            decoded_params['value']=  int(params['amount'])/10**int(decimal)
-        elif('_amount' in params):
-            decoded_params['value']=  int(params['_amount'])/10**int(decimal)
-        elif('amount_' in params):
-            decoded_params['value']=  int(params['amount_'])/10**int(decimal)
-        elif('amt' in params):
-            decoded_params['value']=  int(params['amt'])/10**int(decimal)
-        
-        elif('wad' in params):
-            decoded_params['value']=  int(params['wad'])/10**int(decimal)
-        elif('_wad' in params):
-            decoded_params['value']=  int(params['_wad'])/10**int(decimal)
-        
-        elif('value' in params):
-            decoded_params['value']=  int(params['value'])/10**int(decimal)
-        elif('_value' in params):
-            decoded_params['value']=  int(params['_value'])/10**int(decimal)
-        elif('rawAmount' in params):
-            decoded_params['value']=  int(params['rawAmount'])/10**int(decimal)
-        elif('tokens' in params):
-            decoded_params['value']=  int(params['tokens'])/10**int(decimal)
-        elif('tokenId' in params):
-            decoded_params['value']=  int(params['tokenId'])/10**int(decimal)
-        
-        
 
+        value_check=False
+        for pattern in VALUE_PATTERNS:
+            if(pattern in params):
+                decoded_params['value'] = int(params[pattern])/10**int(decimal)
+                value_check = True
         
-        else:
+        nominal = to_check and value_check
+        
+        if(not(nominal)):
             raise ValueError(f'new syntax for transfer function detected : {params}')
         
         
@@ -519,9 +517,14 @@ class Transfer_Decoder():
     def transferFrom_handler_unsafe(self, decoded, params, one_trace):
         # assumption : param dict is always in from, to, value sequence
         decoded_params= {}
+        
+        key_list = list(params.keys())     
+        logger.info(f'the transferFrom function is using the following keys : {key_list}')
+        if(len(key_list)>3):
+            params.pop('token')
 
         key_list = list(params.keys())
-        logger.info(f'the transferFrom function is using the following keys : {key_list}')
+        
         decoded_params['from'] = params[key_list[0]]
         decoded_params['to'] = params[key_list[1]]
         decoded_params['token_addr']= one_trace['to']
@@ -537,49 +540,26 @@ class Transfer_Decoder():
 
 
     def transferFrom_handler(self, decoded, params, one_trace):
+        # logger.info(f'{params}')
         decoded_params= {}
-
-        # _sender, _recipient, _amount case
-        if('_sender' in params):
-            decoded_params['from']= params['_sender']
-            decoded_params['to'] = params['_recipient']
-        elif('sender' in params):
-            decoded_params['from']= params['sender']
-            decoded_params['to'] = params['recipient']
-        elif('sender_' in params):
-            decoded_params['from']= params['sender_']
-            decoded_params['to'] = params['recipient_']
-
-
-        # src, dst, wad case
-        elif('_src' in params):
-            decoded_params['from']= params['_src']
-            decoded_params['to'] = params['_dst']
-
-        # src, dst, wad case
-        elif('src' in params):
-            decoded_params['from']= params['src']
-            decoded_params['to'] = params['dst']
-        elif('_from' in params):
-            decoded_params['from']= params['_from']
-            decoded_params['to'] = params['_to']
-        elif('from' in params):
-            decoded_params['from']= params['from']
-            decoded_params['to'] = params['to']
-        elif('holder' in params):
-            decoded_params['from']= params['holder']
-            decoded_params['to'] = params['recipient']
-        elif('spender' in params):
-            decoded_params['from']= params['spender']
-            decoded_params['to'] = params['recipient']
-
-
-
-
+        from_check=False
+        for pattern in FROM_PATTERNS:
+            if(pattern in params):
+                decoded_params['from'] = params[pattern]
+                from_check = True
         
-        else:
-            raise ValueError(f'new syntax for transferFrom function detected : {params}')
-
+        to_check = False
+        for pattern in TO_PATTERNS:
+            if(pattern in params):
+                decoded_params['to'] = params[pattern]
+                to_check = True
+        
+        # check if to is set correctly
+        if(not(to_check)):
+            logger.error(f'the current function parameters do not match predefined \'to\' patterns, skipping the current line and saving this contract address')
+            decoded_params = 'irregular_contract'
+            return decoded_params
+        
         decoded_params['token_addr']= one_trace['to']
 
         # get token symbol and denominator
@@ -587,29 +567,24 @@ class Transfer_Decoder():
         decoded_params['symbol'] = symbol
         decoded_params['decimal'] = decimal
         
-        if('_amount' in params):
-            decoded_params['value']=  int(params['_amount'])/10**int(decimal)
-        elif('amount' in params):
-            decoded_params['value']=  int(params['amount'])/10**int(decimal)
-        elif('amount_' in params):
-            decoded_params['value']=  int(params['amount_'])/10**int(decimal)
-        elif('_wad' in params):
-            decoded_params['value']=  int(params['_wad'])/10**int(decimal)
-        elif('wad' in params):
-            decoded_params['value']=  int(params['wad'])/10**int(decimal)
-        elif('_value' in params):
-            decoded_params['value']=  int(params['_value'])/10**int(decimal)
-        elif('value' in params):
-            decoded_params['value']=  int(params['value'])/10**int(decimal)
-        elif('rawAmount' in params):
-            decoded_params['value']=  int(params['rawAmount'])/10**int(decimal)
-        elif('tokens' in params):
-            decoded_params['value']=  int(params['tokens'])/10**int(decimal)
-        elif('tokenId' in params):
-            decoded_params['value']=  int(params['tokenId'])/10**int(decimal)
+        value_check=False
+        for pattern in VALUE_PATTERNS:
+            if(pattern in params):
+                decoded_params['value'] = int(params[pattern])/10**int(decimal)
+                value_check = True
         
-        else:
-            raise ValueError(f'new syntax for transferFrom function detected : {params}')
+        
+        nominal = from_check and to_check and value_check
+        check_sum = np.sum([from_check,to_check, value_check])
+        if(not(nominal)):
+            if(check_sum==2): # e.g. Morphous contract
+                edge_case_contract = one_trace['to']
+                logger.error(f'for this transfer event (contract address : {edge_case_contract}), we found a derivative function of ERC20 transfer function parameters : {params}, skipping this transfer event (cannot be interpreted normally)')
+                decoded_params = 'irregular_contract'
+                return decoded_params
+
+            
+            raise ValueError(f'new syntax for transfer function detected : {params}')
         
         
         
