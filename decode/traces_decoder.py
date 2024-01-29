@@ -38,7 +38,7 @@ IRREGULAR_CONTRACTS = ['0xc385e90da38f8798f5a5512d415a13c87e0d6265', #BenDAO
 
 
 
-### util class for controlling eth-tracker class. handles time conversions and simple path handling.
+### util methods. handles time conversions and simple path handling.
 
 class Transfer_Decoder():
     def __init__(self, eth_tracker_loc, w3, API):
@@ -208,6 +208,36 @@ class Transfer_Decoder():
     def sort_trace_rows(self, rest:pd.DataFrame):
         pass
 
+    def check_erc_type(self, contract_addr):
+        # known constants for erc165 supportsinterface check
+        # dict 
+        id_dict = {}
+        id_dict['erc721'] = '0x80ac58cd'
+        id_dict['erc1155'] = '0xd9b67a26'
+        id_dict['erc777'] = '0xe58e113c'
+
+        supports_interface_fn_signature = self.w3.keccak(text='supportsInterface(bytes4)').hex()[0:10]
+        
+        supports = 'other'
+        for k,v in id_dict.items():
+            call_obj = {
+                'to': contract_addr,
+                'data': supports_interface_fn_signature + id_dict[k].rjust(64, '0')
+            }
+            result = self.w3.eth.call(call_obj)
+            supports_check = result.hex() == '0x' + '1'.rjust(64, '0')
+            print(f"The contract at {contract_addr} supports {k}: {supports_check}")
+            
+            # if we get a hit
+            if(supports_check):
+                if(supports=='other'):
+                    supports = k
+                else: # just line up strings
+                    supports = supports + ',' + k
+                
+        # return supporting standards
+        
+        return supports
 
     
         
@@ -219,12 +249,18 @@ class Transfer_Decoder():
         
         contract_addr = Web3.to_checksum_address(contract_addr) 
 
+
         # first check if ABI exists on Etherscan
         contract_abi, verdict = self.abi_handler_addr_pos(contract_addr, self.apis['ETHERSCAN_API'])
        
         # try to decode the input using ABI
         params = 'unused' # will be overwritten if ABI decoding was successful
         if(verdict=='contract'):
+            # check if the contract implements erc20 or erc721 by using erc165 supportsInterface(bytes4) method
+            # erc_type = self.check_erc_type(contract_addr)
+            
+            
+            
             if(len(hex_input)>2): #handling null and 0x
                 if(contract_abi is None):
                     logger.info(f'fetching ABI failed. Trying to query public byte library')
