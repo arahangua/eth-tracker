@@ -6,12 +6,13 @@ import argparse
 
 parser = argparse.ArgumentParser(description="batch job parser for eth-tracker")
 parser.add_argument("--batch_script", "-b",  type=str, required=True, help="name of the batch script. Each line in the script should be one of eth-tracker jobs")
-   
+parser.add_argument("--num_process", "-n", type=str, required=True, help="number of subprocesses to spawn")
+
 args = parser.parse_args()   
 batch_script = args.batch_script
 
 # read in batch_job.txt file
-process_n = 20
+process_n = int(args.num_process)
 
 with open(batch_script, 'r') as infile:
      lines = [line.strip() for line in infile.readlines()]
