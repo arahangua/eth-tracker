@@ -10,9 +10,9 @@ from web3 import Web3
 import hashlib
 import eth_abi 
 
-now = datetime.datetime.now()
-# Format the date to 'day-month-year'
-DATE = now.strftime('%d%m%y')
+# now = datetime.datetime.now()
+# # Format the date to 'day-month-year'
+# DATE = now.strftime('%d%m%y')
 
 #global switch for fetching abis 
 RETRY_UNVERIFIED=False
@@ -20,7 +20,7 @@ RETRY_UNVERIFIED=False
 logger = logging.getLogger(__name__)
 
 class Eth_tracker():
-    def __init__(self, web3_instance, block_id, contracts, apis):
+    def __init__(self, web3_instance, block_id, contracts, apis, DATE):
         self.w3 = web3_instance
         try:
             block_id = int(block_id)
@@ -29,6 +29,7 @@ class Eth_tracker():
         self.block_id = block_id
         self.contracts = contracts
         self.apis = apis
+        self.DATE = DATE
         logger.info('eth etl class initialized')
 
     def fetch_blockinfo(self):
@@ -262,14 +263,14 @@ class Eth_tracker():
             inner['decoded']['values']=params
             write['output']=inner
         
-        utils.check_dir(f"./output/{DATE}/tx/")
-        with open(f"./output/{DATE}/tx/block_id_{self.block_id}_{addr_pos}_contract_addr_{search_entry}_tx_{inner['transaction_hash']}.txt", 'w') as outfile:
+        utils.check_dir(f"./output/{self.DATE}/tx/")
+        with open(f"./output/{self.DATE}/tx/block_id_{self.block_id}_{addr_pos}_contract_addr_{search_entry}_tx_{inner['transaction_hash']}.txt", 'w') as outfile:
             json.dump(write, outfile)
         logger.info(f"results (contracts that were calling the target contract) for {self.block_id} and the contract {search_entry} was successfully saved")
 
     def write_result_addrs(self, search_entry, subset, addr_pos):
-        utils.check_dir(f"./output/{DATE}/addrs")
-        subset.to_csv(f"./output/{DATE}/addrs/block_id_{self.block_id}_{addr_pos}_contract_addr_{search_entry}.csv", index=False)
+        utils.check_dir(f"./output/{self.DATE}/addrs")
+        subset.to_csv(f"./output/{self.DATE}/addrs/block_id_{self.block_id}_{addr_pos}_contract_addr_{search_entry}.csv", index=False)
         logger.info(f"results for the contract {search_entry} was successfully saved")
 
 
@@ -329,8 +330,8 @@ class Eth_tracker():
                     logger.error(f"output could not be decoded. output: {output}  \n tx_hash: {inner['transactionHash']}, skipping the decoding of the output. Error raised : {e}")
                 
             write['trace']=inner
-        utils.check_dir(f"./output/{DATE}/traces")
-        with open(f"./output/{DATE}/traces/block_id_{self.block_id}_{addr_pos}_contract_addr_{search_entry}_trace_index_{action_subset.name}.txt", 'w') as outfile:
+        utils.check_dir(f"./output/{self.DATE}/traces")
+        with open(f"./output/{self.DATE}/traces/block_id_{self.block_id}_{addr_pos}_contract_addr_{search_entry}_trace_index_{action_subset.name}.txt", 'w') as outfile:
             json.dump(write, outfile)
         logger.info(f"results (traces that were calling the target contract) for {self.block_id} and the contract {search_entry} was successfully saved")
 
@@ -506,7 +507,7 @@ class Eth_tracker():
         for search_addr in CONTRACTS_BK:
             logger.info(f'getting logs for the address : {search_addr}, starting block : {args.start_block} ending block : {args.end_block}')
             # check if its cached
-            cache_root = f'./output/{DATE}/{args.start_block}_{args.end_block}/logs'
+            cache_root = f'./output/{self.DATE}/{args.start_block}_{args.end_block}/logs'
             cache_file = f'{cache_root}/{search_addr}.csv'
             
             if(os.path.exists(cache_file)):
@@ -758,7 +759,7 @@ class Eth_tracker():
         for search_addr in CONTRACTS:
             logger.info(f'getting traces for the address : {search_addr}, starting block : {args.start_block} ending block : {args.end_block} at {args.pos} position')
             # check if its cached
-            cache_root = f'./output/{DATE}/{args.start_block}_{args.end_block}/traces_{args.pos}'
+            cache_root = f'./output/{self.DATE}/{args.start_block}_{args.end_block}/traces_{args.pos}'
             cache_file = f'{cache_root}/{search_addr}.csv'
             
             if(os.path.exists(cache_file)):
@@ -778,7 +779,7 @@ class Eth_tracker():
     def get_all_traces(self, CONTRACTS, args):
         
         # check if its cached
-        cache_root = f'./output/{DATE}/trace_out/{args.blocknumber}'
+        cache_root = f'./output/{self.DATE}/trace_out/{args.blocknumber}'
         cache_file = f'{cache_root}/traced_out.csv'
         
         if(os.path.exists(cache_file)):

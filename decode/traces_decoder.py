@@ -17,9 +17,9 @@ logger = logging.getLogger(__name__)
         
 
 #gloabal variables
-now = datetime.datetime.now()
-# Format the date to 'day-month-year'
-DATE = now.strftime('%d%m%y')
+# now = datetime.datetime.now()
+# # Format the date to 'day-month-year'
+# DATE = now.strftime('%d%m%y')
 RETRY_UNVERIFIED=False
 
 # function parameter patterns
@@ -41,11 +41,11 @@ IRREGULAR_CONTRACTS = ['0xc385e90da38f8798f5a5512d415a13c87e0d6265', #BenDAO
 ### util methods. handles time conversions and simple path handling.
 
 class Transfer_Decoder():
-    def __init__(self, eth_tracker_loc, w3, API):
+    def __init__(self, eth_tracker_loc, w3, API, DATE):
         self.w3 = w3
         self.apis= API
         self.ET_root = eth_tracker_loc
-
+        self.DATE = DATE
         
 
 

@@ -8,13 +8,13 @@ import price_fetch
 logger = logging.getLogger(__name__)
 
 
-def run_job(args, w3, apis):
+def run_job(args, w3, apis, DATE):
     
     
     #initialize the class for price retrieval
     if args.source == 'defillama':
         logger.info(f"fetching token price from defillama")
-        pf = price_fetch.Defillama(eth_tracker_loc='./', w3 = w3, API=apis)
+        pf = price_fetch.Defillama(eth_tracker_loc='./', w3 = w3, API=apis, DATE=DATE)
     elif args.source == 'coingecko':
         logger.info(f"fetching token price from coingecko")
         pf = price_fetch.Coingecko()

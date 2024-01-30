@@ -6,7 +6,7 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-def run_job(args, w3, apis):
+def run_job(args, w3, apis, DATE):
     # Config vars
     # BLOCK_ID = '17781200'
     # CONTRACTS = '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D'
@@ -37,7 +37,7 @@ def run_job(args, w3, apis):
 
 
     # initialize custom class
-    eth = Eth_tracker(w3, BLOCK_ID, CONTRACTS, apis)
+    eth = Eth_tracker(w3, BLOCK_ID, CONTRACTS, apis, DATE)
 
     if args.job == "contracts_from":
         logger.info(f"extracting contracts that gets called from the input contract {args.addr} in block {args.blocknumber}")

@@ -8,6 +8,14 @@ import pandas as pd
 sys.path.append('./pipeline')
 import etl_pipeline, decode_pipeline, price_fetch_pipeline
 import arg_parser 
+import datetime
+
+# set datetime 
+now = datetime.datetime.now()
+# Format the date to 'day-month-year'
+DATE = now.strftime('%d%m%y')
+
+
 
 #loading API key
 load_dotenv()
@@ -41,10 +49,10 @@ logger = logging.getLogger(__name__)
 pipeline = arg_parser.job_parser(args)
 
 if(pipeline == 'eth_etl'):
-    etl_pipeline.run_job(args = args, w3=w3, apis = apis)
+    etl_pipeline.run_job(args = args, w3=w3, apis = apis, DATE=DATE)
 elif(pipeline == 'decode'):
-    decode_pipeline.run_job(args = args, w3=w3, apis = apis)
+    decode_pipeline.run_job(args = args, w3=w3, apis = apis, DATE=DATE)
 elif(pipeline == 'price_fetch'):
-    price_fetch_pipeline.run_job(args = args, w3=w3, apis = apis)
+    price_fetch_pipeline.run_job(args = args, w3=w3, apis = apis, DATE=DATE)
 
 logger.info(f"job succesfully done, please check job_{args.job_id}.log for the job log")

@@ -8,11 +8,11 @@ from traces_decoder import Transfer_Decoder
 logger = logging.getLogger(__name__)
 
 
-def run_job(args, w3, apis):
+def run_job(args, w3, apis, DATE):
     
 
     # initialize custom class
-    td = Transfer_Decoder(eth_tracker_loc='./', w3=w3, API = apis)
+    td = Transfer_Decoder(eth_tracker_loc='./', w3=w3, API = apis, DATE=DATE)
 
 
 

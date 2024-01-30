@@ -22,15 +22,16 @@ logger = logging.getLogger(__name__)
         
 
 #gloabal variables
-now = datetime.datetime.now()
-# Format the date to 'day-month-year'
-DATE = now.strftime('%d%m%y')
+# now = datetime.datetime.now()
+# # Format the date to 'day-month-year'
+# DATE = now.strftime('%d%m%y')
 
 class Price_generic():
-    def __init__(self, eth_tracker_loc, w3, API):
+    def __init__(self, eth_tracker_loc, w3, API, DATE):
         self.w3 = w3
         self.apis= API
         self.ET_root = eth_tracker_loc
+        self.DATE = DATE
 
     def check_dir(self, path):
         if(not(os.path.exists(path))):
@@ -93,8 +94,8 @@ class Price_generic():
 ####################################################################################################
 
 class Defillama(Price_generic):
-    def __init__(self,eth_tracker_loc, w3, API):
-        super().__init__(eth_tracker_loc, w3, API)
+    def __init__(self,eth_tracker_loc, w3, API, DATE):
+        super().__init__(eth_tracker_loc, w3, API, DATE)
        
     def parse_token_addrs(self, args):
 
@@ -170,7 +171,7 @@ class Defillama(Price_generic):
 
         # save 
         logger.info(f'saving the most recent price(s) for {args.token}')
-        cache_root = f'./output/{DATE}/{args.source}/{args.job}'
+        cache_root = f'./output/{self.DATE}/{args.source}/{args.job}'
         self.check_dir(cache_root)
         cache_file = f'{cache_root}/price.csv'            
         result_df.to_csv(cache_file, index=False)
@@ -204,7 +205,7 @@ class Defillama(Price_generic):
 
         # save 
         logger.info(f'saving the most recent price(s) for {args.token}')
-        cache_root = f'./output/{DATE}/{args.source}/{args.job}'
+        cache_root = f'./output/{self.DATE}/{args.source}/{args.job}'
         self.check_dir(cache_root)
         cache_file = f'{cache_root}/price.csv'            
         result_df.to_csv(cache_file, index=False)
