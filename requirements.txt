@@ -2,6 +2,5 @@ numpy
 pandas
 hexbytes
 web3
-hashlib
 eth-abi 
 python-dotenv
