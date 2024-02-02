@@ -1,6 +1,6 @@
 numpy
 pandas
 hexbytes
-web3
+web3==5.31.4
 eth-abi 
 python-dotenv
