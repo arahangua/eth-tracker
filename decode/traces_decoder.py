@@ -25,7 +25,7 @@ RETRY_UNVERIFIED=False
 # function parameter patterns
 
 # for transfer functions
-VALUE_PATTERNS = ['_transferTokensWithDecimal', 'amount256', '_val', '_token', 'IODflowAmount', 'tokenId_', 'id', '_id', 'tokenID', '_tokens', 'numTokens', 'share', 'Amount', 'amount', '_amount', 'amount_', 'amt', 'wad', '_wad', 'value', '_value','rawAmount','tokens','tokenId', '_tokenId']
+VALUE_PATTERNS = ['_tokenAmount', 'money', '_transferTokensWithDecimal', 'amount256', '_val', '_token', 'IODflowAmount', 'tokenId_', 'id', '_id', 'tokenID', '_tokens', 'numTokens', 'share', 'Amount', 'amount', '_amount', 'amount_', 'amt', 'wad', '_wad', 'value', '_value','rawAmount','tokens','tokenId', '_tokenId']
 TO_PATTERNS = ['findingAllRecipient', 'buyer', 'recipient', '_recipient', 'recipient_', 'dst', '_dst', 'dst_', 'to', '_to', 'to_', 'toAddress', 'target', 'receiver', '_receiver']
 FROM_PATTERNS = ['_holder', 'owner', '_sender', 'sender', 'sender_', '_src', 'src', 'src_','_from', 'from', 'from_', 'holder', 'spender']
         
