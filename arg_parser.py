@@ -86,7 +86,7 @@ def get_args():
     filter_parser = subparsers.add_parser("decode_trace", help="decode exported inputs (from trace_out job) with a specific search keyword (function name)")
     filter_parser.add_argument("--search_keyword", "-s", type=str, required=True, help="search keyword for function names")
     filter_parser.add_argument("--exported_file", "-e", type=str, required=True,help="exported traces (csv file)")
-    filter_parser.add_argument("--transfer_func_patterns", "-p", type=bool, default = False, help="if set it to True, the job will try to parse transfer functions using predefined patterns. It will fail if it finds a new pattern")
+    filter_parser.add_argument("--transfer_func_patterns", "-p", type=str, default = False, help="if set it to True, the job will try to parse transfer functions using predefined patterns. It will fail if it finds a new pattern")
     filter_parser.add_argument("--job_id", "-j", type=str, default='0', help="job id for running multiple jobs")
     
     ### price fetching ###

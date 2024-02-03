@@ -13,6 +13,11 @@ def run_job(args, w3, apis, DATE):
 
     # initialize custom class
     td = Transfer_Decoder(eth_tracker_loc='./', w3=w3, API = apis, DATE=DATE)
+    if(args.transfer_func_patterns=='False'): #str to bool handling
+        args.transfer_func_patterns = False
+    else:
+        args.transfer_func_patterns = True
+
 
 
 
