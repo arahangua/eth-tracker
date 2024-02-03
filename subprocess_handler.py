@@ -40,10 +40,15 @@ def run_subprocess(command):
 curr_point = 0
 with concurrent.futures.ProcessPoolExecutor() as executor:
     for curr_ in np.arange(n_chunk) + 1:
-        if curr_ > 1 and curr_ == n_chunk:
+        if(len(lines)<=process_n):
+            job_indices = np.arange(curr_point, curr_point + len(lines))
+            curr_point += len(lines)
+        
+        elif curr_ == n_chunk:
             modulo = len(lines) % process_n
             job_indices = np.arange(curr_point, curr_point + modulo)
             curr_point += modulo
+        
         else:
             job_indices = np.arange(curr_point, curr_point + process_n)
             curr_point += process_n
