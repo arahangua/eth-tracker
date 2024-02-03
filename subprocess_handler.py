@@ -2,6 +2,7 @@ import os,sys
 import subprocess
 import numpy as np
 import argparse 
+import concurrent.futures
 
 
 parser = argparse.ArgumentParser(description="batch job parser for eth-tracker")
@@ -14,36 +15,48 @@ batch_script = args.batch_script
 # read in batch_job.txt file
 process_n = int(args.num_process)
 
+
+
+# parse batch script
 with open(batch_script, 'r') as infile:
      lines = [line.strip() for line in infile.readlines()]
 
 for ii, line in enumerate(lines):
     lines[ii] = line + ' -j ' + str(ii%process_n)
-   
+
 
 n_chunk = int(np.ceil(len(lines)/process_n))
 curr_point = 0
 
 
-for curr_ in np.arange(n_chunk)+1:
-    if(curr_>1 and curr_==n_chunk):
-        modulo = len(lines)%process_n
-        job_indices = np.arange(curr_point, curr_point+modulo, 1)
-        # increment
-        curr_point = curr_point+modulo
-
-    else:
-        job_indices = np.arange(curr_point, curr_point+process_n, 1)
-        # increment
-        curr_point = curr_point+process_n
+# multiprocessing using subprocesses         
+def run_subprocess(command):
+    """Function to run a subprocess."""
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = process.communicate()
+    return stdout, stderr
 
 
-    processes=[]
-    for ind in job_indices:
-        parsed = lines[ind].split(' ')
-        process = subprocess.Popen(parsed)
-        processes.append(process)
+curr_point = 0
+with concurrent.futures.ProcessPoolExecutor() as executor:
+    for curr_ in np.arange(n_chunk) + 1:
+        if curr_ > 1 and curr_ == n_chunk:
+            modulo = len(lines) % process_n
+            job_indices = np.arange(curr_point, curr_point + modulo)
+            curr_point += modulo
+        else:
+            job_indices = np.arange(curr_point, curr_point + process_n)
+            curr_point += process_n
 
-    # wait for this batch to finish.
-    for process in processes:
-        process.wait()
+        # Create a list to hold futures
+        futures = []
+        for ind in job_indices:
+            command = lines[ind].split(' ')
+            # Submit subprocesses to the executor
+            future = executor.submit(run_subprocess, command)
+            futures.append(future)
+
+        # Wait for futures to complete if needed and handle results
+        # for future in futures:
+        #     stdout, stderr = future.result()
+            # Process stdout and stderr if needed
