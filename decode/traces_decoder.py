@@ -154,7 +154,7 @@ class Transfer_Decoder():
                 if(row['to'].lower() in IRREGULAR_CONTRACTS):
                     row_decoded = 'irregular_contract'
                 else:
-                    row_decoded = self.trace_decoding_handler(row, use_known_pattern = use_known_pattern)
+                    row_decoded, params = self.trace_decoding_handler(row, use_known_pattern = use_known_pattern)
                 if(row_decoded is not None):
                     if(row_decoded == 'irregular_contract'):
                         # save this contract for later inspection
@@ -164,6 +164,7 @@ class Transfer_Decoder():
                             f.write(irregular + "\n") 
                         logger.info(f'saved(appended) the address of the irregular contract ({irregular}) to {txt_name}')
                     else:
+                        row_decoded['params'] = str(params)
                         for k, v in row_decoded.items():
                             decoded[k] = v
                 else:
@@ -308,7 +309,7 @@ class Transfer_Decoder():
         decoded_params = self.decode_input_from_signature(decoded, params, one_trace, use_known_pattern)
         
         
-        return  decoded_params
+        return  decoded_params, params
     
     def get_proxy_mapping(self, addr:str, ETHERSCAN_API=None):
 
