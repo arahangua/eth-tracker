@@ -160,6 +160,7 @@ class Transfer_Decoder():
                 decoded['init_contract'] = init_contract
                 decoded['blockNumber'] = row['blockNumber']
                 decoded['tx_pos'] = row['transactionPosition']
+                decoded['callType'] = row['callType']
 
                 # some contracts are considered irregular already from the glance of etherscan.
                 if(row['to'].lower() in IRREGULAR_CONTRACTS):
@@ -189,6 +190,7 @@ class Transfer_Decoder():
         concat = concat.reset_index(drop='index')
         # remove duplicate traces from proxy calls
         concat = concat[concat['decimal']!=0]
+        # if function name and params are same then we drop the one
 
         return concat
     
