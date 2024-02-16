@@ -136,7 +136,11 @@ filter_parser.add_argument("--token", "-t", type=str, nargs = '+', required=True
 filter_parser.add_argument("--job_id", "-j", type=str, default='0', help="job id when running multiple jobs")
 args = argparse.Namespace(job= 'price_current', source= 'defillama', token = '/home/takim/work/blockchain-graph-analytics/intermediate_results/transfer_balance/230923/unique_tokens.csv',  job_id= '0')
 
-
-
-
+filter_parser = argparse.ArgumentParser()
+# traces by applying filters (2k range limit) 
+filter_parser.add_argument("--search_keyword", "-s", type=str, required=True, help="search keyword for function names")
+filter_parser.add_argument("--exported_file", "-e", type=str, required=True,help="exported traces (csv file)")
+filter_parser.add_argument("--transfer_func_patterns", "-p", type=str, default = False, help="if set it to True, the job will try to parse transfer functions using predefined patterns. It will fail if it finds a new pattern")
+filter_parser.add_argument("--job_id", "-j", type=str, default='0', help="job id for running multiple jobs")
+args = argparse.Namespace(job= 'decode_trace', search_keyword= 'transfer', exported_file = '/home/takim/work/eth-tracker/output/160224/trace_out/19240945/traced_out.csv', transfer_func_patterns = 'True', job_id='0')
 """

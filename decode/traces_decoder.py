@@ -35,7 +35,10 @@ IRREGULAR_CONTRACTS = ['0xc385e90da38f8798f5a5512d415a13c87e0d6265', #BenDAO
                        '0xbb7829bfdd4b557eb944349b2e2c965446052497', #rarible erc721
                        ]
 
-
+TRANSFER_FUNC_SIGS = ['transfer',
+                      '0x23b872dd', #transferFrom
+                      '0xa9059cbb' #transfer
+                      ]
 
 
 ### util methods. handles time conversions and simple path handling.
@@ -110,7 +113,9 @@ class Transfer_Decoder():
 ####################################################################################################
 # below are decoding related functions 
 
-   
+    #csv_file = args.exported_file
+    #search_str= args.search_keyword
+    #use_known_pattern = args.transfer_func_patterns
     
     # main function that handles different transfer functions
     def decode_trace_csv(self, csv_file, parent_dir, search_str='transfer', use_known_pattern=True):
@@ -136,9 +141,15 @@ class Transfer_Decoder():
             init_contract = init_row['to'].squeeze()
 
             # sort traces in a chronological order if necessary, *already sorted in a chronological order (miner set sequence) atm.
+            target_concat = pd.DataFrame()
+            if('transfer' in search_str):
+                for search_sig in TRANSFER_FUNC_SIGS:
+                    targets = tx_df[tx_df['decoded'].str.contains(search_sig)]
+                    target_concat=pd.concat([target_concat, targets])
             
-   
-            targets = tx_df[tx_df['decoded'].str.contains(search_str)]
+            # re-assign it for the downstream 
+            targets = target_concat
+
             # rest = self.sort_trace_rows(rest) 
 
             # decode each row
@@ -192,9 +203,12 @@ class Transfer_Decoder():
         verdict = impl_check and upgrade_check
         if(verdict):
             # for openzeppelin upgradable template
-            padded = Web3.toHex(self.w3.eth.get_storage_at(contract_addr, "0x7050c9e0f4ca769c69bd3a8ef740bc37934f8e2c036e5a723fd8ee048ed3f8c3"))
-            padded = padded[-42:]
-            impl_addr = '0x' + padded[2:]
+            # padded = Web3.toHex(self.w3.eth.get_storage_at(contract_addr, "0x7050c9e0f4ca769c69bd3a8ef740bc37934f8e2c036e5a723fd8ee048ed3f8c3"))
+            # padded = padded[-42:]
+            # impl_addr = '0x' + padded[2:]
+            with open(f"./proxy_mapping/{contract_addr}.txt", 'r') as infile:
+                impl_addr = json.load(infile)
+            
             impl_addr = Web3.to_checksum_address(impl_addr)
             contract_abi, verdict = self.get_contract_abi(impl_addr, ETHERSCAN_API=self.apis['ETHERSCAN_API'])
             contract = self.w3.eth.contract(address=contract_addr, abi=contract_abi)
@@ -312,20 +326,72 @@ class Transfer_Decoder():
         return  decoded_params, params
     
     def get_proxy_mapping(self, addr:str, ETHERSCAN_API=None):
-
+            
         # make/check local cache 
         cached_file = f"./proxy_mapping/{addr}.txt"
         if os.path.exists(cached_file):
             with open(cached_file, 'r') as infile:
                 impl_addr = json.load(infile)
-                logger.info(f"using cached bytecode (implementation contract) {impl_addr}")
+                if(impl_addr == '0x0000000000000000000000000000000000000000'):
+                    if not(os.path.exists(f"./verified_source/{addr}.txt")):
+                        logger.info(f"cached file was found but checking verified source code from etherscan as there was no previous attempt.")
+                        res = self.get_etherscan_source_code(addr,ETHERSCAN_API)
+                        impl_addr = res[0]['Implementation']
+                        logger.info(f'saving proxy mapping for {addr}')
+                        self.check_dir(f"./proxy_mapping")
+                        with open(cached_file, 'w') as outfile:
+                            json.dump(impl_addr, outfile)
+                else:
+                    logger.info(f"using cached bytecode (implementation contract) {impl_addr}")
                 
         else:
-             # for openzeppelin upgradable template
-            padded = Web3.toHex(self.w3.eth.get_storage_at(addr, "0x7050c9e0f4ca769c69bd3a8ef740bc37934f8e2c036e5a723fd8ee048ed3f8c3"))
-            padded = padded[-42:]
-            impl_addr = '0x' + padded[2:]
-            
+            # check etherscan for implementation address
+            res = self.get_etherscan_source_code(addr,ETHERSCAN_API)
+            impl_addr = res[0]['Implementation']
+
+            if(len(impl_addr)==42):
+                logger.info(f"found a valid impl addresss from etherscan verified source codes")
+
+            else:
+                # for openzeppelin upgradable template
+                padded = Web3.toHex(self.w3.eth.get_storage_at(addr, "0x7050c9e0f4ca769c69bd3a8ef740bc37934f8e2c036e5a723fd8ee048ed3f8c3"))
+                padded = padded[-42:]
+                impl_addr = '0x' + padded[2:]
+
+                if(impl_addr!='0x0000000000000000000000000000000000000000'):
+                    logger.info(f"found a valid impl addresss from openzeppelin upgradable template")
+                else:
+                    # check for erc-1967 case
+                    padded = Web3.toHex(self.w3.eth.get_storage_at(addr, "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc"))
+                    padded = padded[-42:]
+                    impl_addr = '0x' + padded[2:]
+                    
+                    if(impl_addr!='0x0000000000000000000000000000000000000000'):
+                        logger.info(f"found a valid impl addresss through erc-1967 slot check")
+                    else:
+                        # check UUPS
+                        abi = """
+                                [{
+                                    "inputs": [],
+                                    "name": "getImplementation",
+                                    "outputs": [{"internalType": "address", "name": "", "type": "address"}],
+                                    "stateMutability": "view",
+                                    "type": "function"
+                                }]
+                                """
+
+                        contract = self.w3.eth.contract(address=addr, abi=abi)
+                        try:
+                            impl_addr = contract.functions.getImplementation().call()
+                            print(f"The implementation address is: {impl_addr}, {addr} is likely a UUPS contract")
+                        except Exception as e:
+                            print(f"Error retrieving implementation address: {e}, {addr} is likely not a UUPS contract")
+
+                            # finally check for diamond cut (skipping for now as we don't know which one is the right impl_addr)
+
+
+
+
             # in case, needed we can check the value of impl_addr here.
 
             logger.info(f'saving proxy mapping for {addr}')
@@ -348,7 +414,6 @@ class Transfer_Decoder():
             #implementation_address = contract.functions.implementation().call()
 
             # check first if there is cached data ("get_storage_at" can be expensive in terms of compute unit)
-
             impl_addr = self.get_proxy_mapping(contract_addr, ETHERSCAN_API=self.apis['ETHERSCAN_API'])
 
             # for openzeppelin upgradable template
@@ -363,7 +428,7 @@ class Transfer_Decoder():
                 return func, params
 
             else:
-                logger.info(f'found a proxy contract that probably is using openzeppelin upgradable contract')
+                logger.info(f'found a proxy contract that probably is an upgradable contract')
                 impl_addr = Web3.to_checksum_address(impl_addr)
                 contract_abi, verdict = self.get_contract_abi(impl_addr, ETHERSCAN_API=self.apis['ETHERSCAN_API'])
                 contract = self.w3.eth.contract(address=contract_addr, abi=contract_abi)
@@ -681,6 +746,42 @@ class Transfer_Decoder():
             print(f"{addr} is a contract. Fetching abi...")
             contract_abi = self.get_abi(addr, ETHERSCAN_API)
             return contract_abi, 'contract'
+        
+    def get_etherscan_source_code(self, contract_addr:str, ETHERSCAN_API=None):
+        cached_file =  f"{self.ET_root}/verified_source/{contract_addr}.txt"
+        if os.path.exists(cached_file):
+            with open(cached_file, 'r') as infile:
+                sc_result = json.load(infile)
+                if RETRY_UNVERIFIED==False and sc_result=='Contract source code not verified': #--> abi not usable
+                    logger.info(f'source code fetching step is ignored for {contract_addr} as previous attempts were not successful. In case you want to force fetching please set global var RETRY_UNVERIFIED to True in Eth_ETL.py')
+                    return 
+                else:
+                    if sc_result!='Max rate limit reached': # checks for previous rate limit problem
+                        print("using cached source code")
+                        return sc_result
+        
+        url = f"https://api.etherscan.io/api?module=contract&action=getsourcecode&address={contract_addr}&apikey={ETHERSCAN_API}"
+        response = requests.get(url)
+        res = response.json()
+
+        if res['status'] == '1':
+            self.check_dir(f"{self.ET_root}/verified_source")
+            with open(cached_file, 'w') as outfile:
+                json.dump(res['result'], outfile)
+                print('verified source code saved')
+
+            return res['result']
+            
+        else:
+            print(f"Error: {res['message']} Result: {res['result']}")    
+            self.check_dir(f"{self.ET_root}/abis")
+            with open(cached_file, 'w') as outfile:
+                json.dump(res['result'], outfile)
+                print(f'There was an error when fetching verified source code for {contract_addr}, saved the error msg in verified_source folder')
+            
+            return # contract cannot be initialized with abi (could use function signatures for targeted approach)
+
+
         
     def get_abi(self, contract_addr:str, ETHERSCAN_API=None, contract_type=None):
         # check its its cached/called before
