@@ -9,7 +9,8 @@ import datetime
 from web3 import Web3
 import hashlib
 import eth_abi 
-
+from functools import wraps
+import time
 # now = datetime.datetime.now()
 # # Format the date to 'day-month-year'
 # DATE = now.strftime('%d%m%y')
@@ -18,6 +19,37 @@ import eth_abi
 RETRY_UNVERIFIED=False
 
 logger = logging.getLogger(__name__)
+
+
+# functions for handling requests
+def retry_on_503(max_retries=10, delay=2):
+    """
+    Decorator to retry a function that makes an HTTP request if a 503 status code is returned.
+
+    :param max_retries: Maximum number of retry attempts.
+    :param delay: Delay between retries in seconds.
+    """
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            for attempt in range(max_retries):
+                response = func(*args, **kwargs)
+                if response.status_code != 503:
+                    return response
+                print(f"Attempt {attempt + 1} of {max_retries} failed with status 503. Retrying in {delay} seconds...")
+                time.sleep(delay)
+            print("Max retries reached. Request failed.")
+            return None
+        return wrapper
+    return decorator
+
+
+
+
+MAX_TRIES = 10
+TIME_DELAY = 2 # seconds
+
+
 
 class Eth_tracker():
     def __init__(self, web3_instance, block_id, contracts, apis, DATE):
@@ -40,6 +72,17 @@ class Eth_tracker():
         
         return blockinfo
         
+    @retry_on_503(max_retries=MAX_TRIES , delay=TIME_DELAY)
+    def send_request(self, url, request_body):
+        response = requests.post(url, json=request_body)
+        return response
+    
+    @retry_on_503(max_retries=MAX_TRIES, delay=TIME_DELAY)
+    def get_url(self, url):
+        response = requests.get(url)
+        return response
+
+
     def fetch_blocktrace(self, rpc_provider):
         
         url = f"{rpc_provider}"
@@ -51,7 +94,7 @@ class Eth_tracker():
                     "id":1
                 }
         
-        response = requests.post(url, json=request)
+        response = self.send_request(url, request)
         res = response.json()
 
         blocktrace = res['result']
@@ -59,6 +102,7 @@ class Eth_tracker():
         logger.info(f'traces for the block fetched, block id: {self.block_id}')
         
         return blocktrace
+    
     
     def get_transactions(self, blockinfo):    
         tx_hashes = blockinfo['transactions']
@@ -83,6 +127,7 @@ class Eth_tracker():
         logger.info(f"exported {len(collect)} transactions")
         return collect
     
+
     def get_trace_actions(self, blocktrace):    
         collect=pd.DataFrame()
         for action in blocktrace:
@@ -337,7 +382,7 @@ class Eth_tracker():
 
     
 
-
+    
     def get_abi(self, contract_addr:str, ETHERSCAN_API=None, contract_type=None):
         # check its its cached/called before
         cached_file = f"./abis/{contract_addr}.txt"
@@ -357,7 +402,7 @@ class Eth_tracker():
                     logger.error(f'saved ABI was not in a proper format for: {contract_addr}')
 
         url = f"https://api.etherscan.io/api?module=contract&action=getabi&address={contract_addr}&apikey={ETHERSCAN_API}"
-        response = requests.get(url)
+        response = self.get_url(url)
         res = response.json()
 
 
@@ -598,7 +643,7 @@ class Eth_tracker():
                   
                 }
 
-        response = requests.post(url, json= req) 
+        response = self.send_request(url, req) 
         if response.status_code == 200:
             data = response.json()
             if ('result' in data and len(data['result']) > 0):
@@ -743,7 +788,7 @@ class Eth_tracker():
     def query_public_library(self, hex_signature):
         url = f"https://www.4byte.directory/api/v1/signatures/?hex_signature={hex_signature}"
         
-        response = requests.get(url)
+        response = self.get_url(url)
         if response.status_code == 200:
             data = response.json()
             if 'results' in data and len(data['results']) > 0:
@@ -768,7 +813,7 @@ class Eth_tracker():
             else:
                 target_traces = self._get_traces_filter(args, search_addr)
                 
-                if(target_traces is not None):
+                if(target_traces is not None): # make sure that traces were exported.
                     logger.info(f'found {len(target_traces)} trace entries for addr : {search_addr}')
                     utils.check_dir(cache_root)
                     target_traces.to_csv(cache_file, index=False)
