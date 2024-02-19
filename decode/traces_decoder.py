@@ -610,6 +610,12 @@ class Transfer_Decoder():
         decoded_params['decimal'] = decimal
         
         token_amt = params[key_list[1]]
+        try:
+            int_casted= int(token_amt)
+        except:
+            logger.error(f'the token_amt :{token_amt} was not castable to integer. Skipping the current row')
+            return None
+
         decoded_params['value'] =  int(token_amt)/10**int(decimal)
         decoded_params['function'] = decoded
         return decoded_params
@@ -658,8 +664,11 @@ class Transfer_Decoder():
         key_list = list(params.keys())     
         logger.info(f'the transferFrom function is using the following keys : {key_list}')
         if(len(key_list)>3):
-            params.pop('token')
-
+            try:
+                params.pop('token')
+            except:
+                logger.error(f'we are getting more than 3 args for transferfrom function and the above keys are not widely used. Skipping the current row.')
+                return None
         key_list = list(params.keys())
         
         decoded_params['from'] = params[key_list[0]]
