@@ -11,12 +11,41 @@ import eth_abi
 import requests
 import logging
 import hexbytes
-
+from functools import wraps
+import time
 
 logger = logging.getLogger(__name__)
         
 
+# functions for handling requests
+def retry_on_503(max_retries=10, delay=2):
+    """
+    Decorator to retry a function that makes an HTTP request if a 503 status code is returned.
+
+    :param max_retries: Maximum number of retry attempts.
+    :param delay: Delay between retries in seconds.
+    """
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            for attempt in range(max_retries):
+                response = func(*args, **kwargs)
+                if response.status_code != 503:
+                    return response
+                print(f"Attempt {attempt + 1} of {max_retries} failed with status 503. Retrying in {delay} seconds...")
+                time.sleep(delay)
+            print("Max retries reached. Request failed.")
+            return None
+        return wrapper
+    return decorator
+
+
 #gloabal variables
+
+MAX_TRIES = 10
+TIME_DELAY = 2 # seconds
+
+
 # now = datetime.datetime.now()
 # # Format the date to 'day-month-year'
 # DATE = now.strftime('%d%m%y')
@@ -49,7 +78,11 @@ class Transfer_Decoder():
         self.apis= API
         self.ET_root = eth_tracker_loc
         self.DATE = DATE
-        
+    
+    @retry_on_503(max_retries=MAX_TRIES, delay=TIME_DELAY)
+    def get_url(self, url):
+        response = requests.get(url)
+        return response
 
 
     def check_dir(self, path):
@@ -701,7 +734,7 @@ class Transfer_Decoder():
     def query_public_library(self, hex_signature):
         url = f"https://www.4byte.directory/api/v1/signatures/?hex_signature={hex_signature}"
         
-        response = requests.get(url)
+        response = self.get_url(url)
         if response.status_code == 200:
             data = response.json()
             if 'results' in data and len(data['results']) > 0:
@@ -763,7 +796,7 @@ class Transfer_Decoder():
                         return sc_result
         
         url = f"https://api.etherscan.io/api?module=contract&action=getsourcecode&address={contract_addr}&apikey={ETHERSCAN_API}"
-        response = requests.get(url)
+        response = self.get_url(url)
         res = response.json()
 
         if res['status'] == '1':
@@ -800,7 +833,7 @@ class Transfer_Decoder():
                         return abi_result
         
         url = f"https://api.etherscan.io/api?module=contract&action=getabi&address={contract_addr}&apikey={ETHERSCAN_API}"
-        response = requests.get(url)
+        response = self.get_url(url)
         res = response.json()
 
 
