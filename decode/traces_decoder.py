@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
         
 
 # functions for handling requests
-def retry_on_503(max_retries=10, delay=2):
+def retry_on_not_200(max_retries=10, delay=2):
     """
     Decorator to retry a function that makes an HTTP request if a 503 status code is returned.
 
@@ -30,7 +30,7 @@ def retry_on_503(max_retries=10, delay=2):
         def wrapper(*args, **kwargs):
             for attempt in range(max_retries):
                 response = func(*args, **kwargs)
-                if response.status_code != 503:
+                if response.status_code == 200:
                     return response
                 print(f"Attempt {attempt + 1} of {max_retries} failed with status 503. Retrying in {delay} seconds...")
                 time.sleep(delay)
@@ -79,7 +79,7 @@ class Transfer_Decoder():
         self.ET_root = eth_tracker_loc
         self.DATE = DATE
     
-    @retry_on_503(max_retries=MAX_TRIES, delay=TIME_DELAY)
+    @retry_on_not_200(max_retries=MAX_TRIES, delay=TIME_DELAY)
     def get_url(self, url):
         response = requests.get(url)
         return response

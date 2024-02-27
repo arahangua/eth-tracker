@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 # functions for handling requests
-def retry_on_503(max_retries=10, delay=2):
+def retry_on_not_200(max_retries=10, delay=2):
     """
     Decorator to retry a function that makes an HTTP request if a 503 status code is returned.
 
@@ -34,9 +34,9 @@ def retry_on_503(max_retries=10, delay=2):
         def wrapper(*args, **kwargs):
             for attempt in range(max_retries):
                 response = func(*args, **kwargs)
-                if response.status_code != 503:
+                if response.status_code == 200:
                     return response
-                print(f"Attempt {attempt + 1} of {max_retries} failed with status 503. Retrying in {delay} seconds...")
+                print(f"Attempt {attempt + 1} of {max_retries} failed with status {response.status_code}. Retrying in {delay} seconds...")
                 time.sleep(delay)
             print("Max retries reached. Request failed.")
             return None
@@ -72,12 +72,12 @@ class Eth_tracker():
         
         return blockinfo
         
-    @retry_on_503(max_retries=MAX_TRIES , delay=TIME_DELAY)
+    @retry_on_not_200(max_retries=MAX_TRIES , delay=TIME_DELAY)
     def send_request(self, url, request_body):
         response = requests.post(url, json=request_body)
         return response
     
-    @retry_on_503(max_retries=MAX_TRIES, delay=TIME_DELAY)
+    @retry_on_not_200(max_retries=MAX_TRIES, delay=TIME_DELAY)
     def get_url(self, url):
         response = requests.get(url)
         return response
