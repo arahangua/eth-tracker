@@ -662,10 +662,11 @@ class Eth_tracker():
             tx = {}
 
             # actions
-            action = tr['action']
-            for k,v in action.items():
-                tx[k] = v
-            
+            if('action' in list(tr.keys())):
+                action = tr['action']
+                for k,v in action.items():
+                    tx[k] = v
+                
             tx['blockHash'] = tr['blockHash']
             tx['blockNumber'] = tr['blockNumber']
             if(tr['result'] is None): # some edge case where trace itself is not none but 'result' is nonetype
