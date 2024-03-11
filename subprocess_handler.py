@@ -24,11 +24,6 @@ with open(batch_script, 'r') as infile:
 for ii, line in enumerate(lines):
     lines[ii] = line + ' -j ' + str(ii%process_n)
 
-
-n_chunk = int(np.ceil(len(lines)/process_n))
-curr_point = 0
-
-
 # multiprocessing using subprocesses         
 def run_subprocess(command):
     """Function to run a subprocess."""
@@ -36,35 +31,18 @@ def run_subprocess(command):
     stdout, stderr = process.communicate()
     return stdout, stderr
 
+def chunkify(lst, n):
+    """Yield successive n-sized chunks from lst."""
+    for i in range(0, len(lst), n):
+        yield lst[i:i + n]
 
-curr_point = 0
-with concurrent.futures.ProcessPoolExecutor() as executor:
-    for curr_ in np.arange(n_chunk) + 1:
-        if(len(lines)<=process_n):
-            job_indices = np.arange(curr_point, curr_point + len(lines))
-            curr_point += len(lines)
-        
-        elif curr_ == n_chunk:
-            modulo = len(lines) % process_n
-            job_indices = np.arange(curr_point, curr_point + modulo)
-            curr_point += modulo
-        
-        else:
-            job_indices = np.arange(curr_point, curr_point + process_n)
-            curr_point += process_n
+# n_chunks = len(lines) // process_n + (1 if len(lines) % process_n else 0)
+chunk_size = max(len(lines) // process_n, 1)
 
-        # Create a list to hold futures
-        futures = []
-        for ind in job_indices:
-            command = lines[ind].split(' ')
-            # Submit subprocesses to the executor
-            future = executor.submit(run_subprocess, command)
-            futures.append(future)
+with concurrent.futures.ProcessPoolExecutor(max_workers=process_n) as executor:
+    # Split lines into chunks
+    for chunk in chunkify(lines, chunk_size):
+        futures = [executor.submit(run_subprocess, line.split(' ')) for line in chunk]
 
 
-        # Wait for futures to complete if needed and handle results
-        concurrent.futures.wait(futures)
-        
-        # for future in futures:
-        #     stdout, stderr = future.result()
-            # Process stdout and stderr if needed
+

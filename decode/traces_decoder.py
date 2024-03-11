@@ -32,7 +32,7 @@ def retry_on_not_200(max_retries=10, delay=2):
                 response = func(*args, **kwargs)
                 if response.status_code == 200:
                     return response
-                print(f"Attempt {attempt + 1} of {max_retries} failed with status 503. Retrying in {delay} seconds...")
+                print(f"Attempt {attempt + 1} of {max_retries} failed with status {response.status_code}. Retrying in {delay} seconds...")
                 time.sleep(delay)
             print("Max retries reached. Request failed.")
             return None
