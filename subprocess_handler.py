@@ -61,7 +61,10 @@ with concurrent.futures.ProcessPoolExecutor() as executor:
             future = executor.submit(run_subprocess, command)
             futures.append(future)
 
+
         # Wait for futures to complete if needed and handle results
+        concurrent.futures.wait(futures)
+        
         # for future in futures:
         #     stdout, stderr = future.result()
             # Process stdout and stderr if needed
