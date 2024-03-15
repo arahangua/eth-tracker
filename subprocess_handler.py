@@ -16,7 +16,6 @@ batch_script = args.batch_script
 process_n = int(args.num_process)
 
 
-
 # parse batch script
 with open(batch_script, 'r') as infile:
      lines = [line.strip() for line in infile.readlines()]
@@ -43,6 +42,13 @@ with concurrent.futures.ProcessPoolExecutor(max_workers=process_n) as executor:
     # Split lines into chunks
     for chunk in chunkify(lines, chunk_size):
         futures = [executor.submit(run_subprocess, line.split(' ')) for line in chunk]
+    
+        # Wait for all futures to complete
+        for future in concurrent.futures.as_completed(futures):
+            stdout, stderr = future.result()  # This will block until the future is complete
+            # Process the results here (for example, printing them)
+            print("stdout:", stdout.decode().strip())
+            print("stderr:", stderr.decode().strip())
 
 
 
