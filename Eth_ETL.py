@@ -35,7 +35,16 @@ def retry_on_not_200(max_retries=10, delay=2):
             for attempt in range(max_retries):
                 response = func(*args, **kwargs)
                 if response.status_code == 200:
-                    return response
+                    try:
+                        response_json = response.json()
+                        # Check for any error code in the response
+                        if 'error' in response_json and 'code' in response_json['error']:
+                            print(f"Attempt {attempt + 1} of {max_retries} encountered an error. Retrying in {delay} seconds...")
+                        else:
+                            return response  # Successful request with no error
+                    except ValueError:
+                        # Response is not JSON or does not have expected structure
+                        return response
                 print(f"Attempt {attempt + 1} of {max_retries} failed with status {response.status_code}. Retrying in {delay} seconds...")
                 time.sleep(delay)
             print("Max retries reached. Request failed.")
@@ -43,7 +52,27 @@ def retry_on_not_200(max_retries=10, delay=2):
         return wrapper
     return decorator
 
+# functions for handling empty logs
+def retry_on_empty(max_retries=10, delay=2):
+    """
+    Decorator to retry a function that makes an getlog request again if the log is empty
 
+    :param max_retries: Maximum number of retry attempts.
+    :param delay: Delay between retries in seconds.
+    """
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            for attempt in range(max_retries):
+                response = func(*args, **kwargs)
+                if len(response)>0:
+                    return response
+                print(f"Attempt {attempt + 1} of {max_retries} as empty logs were returned. Retrying in {delay} seconds...")
+                time.sleep(delay)
+            print("Max retries reached. Request failed.")
+            return None
+        return wrapper
+    return decorator
 
 
 MAX_TRIES = 10
@@ -74,12 +103,12 @@ class Eth_tracker():
         
     @retry_on_not_200(max_retries=MAX_TRIES , delay=TIME_DELAY)
     def send_request(self, url, request_body):
-        response = requests.post(url, json=request_body)
+        response = requests.post(url, json=request_body,timeout=None)
         return response
     
     @retry_on_not_200(max_retries=MAX_TRIES, delay=TIME_DELAY)
     def get_url(self, url):
-        response = requests.get(url)
+        response = requests.get(url, timeout=None)
         return response
 
 
@@ -434,13 +463,18 @@ class Eth_tracker():
             
         return contract_abi, verdict
     
+    @retry_on_empty(max_retries=MAX_TRIES, delay=TIME_DELAY)
+    def get_logs_try(self, filter_params):
+        logs = self.w3.eth.get_logs(filter_params)
+        return logs
+
 
     def get_blocks_filter(self, args, search_addr):
         # check if its in checksum address
         search_addr = Web3.to_checksum_address(search_addr) 
         filter_params = self.make_filter(args, search_addr)
         #get logs
-        logs = self.w3.eth.get_logs(filter_params)
+        logs = self.get_logs_try(filter_params)
         if(len(logs)>0):
             logger.info(f'got filter logs for the address : {search_addr}')
             # get target blocks
@@ -455,7 +489,7 @@ class Eth_tracker():
         search_addr = Web3.to_checksum_address(search_addr) 
         filter_params = self.make_filter(args, search_addr)
         #get logs
-        logs = self.w3.eth.get_logs(filter_params)
+        logs = self.get_logs_try(filter_params)
         if(len(logs)>0):
             logger.info(f'got filter logs for the address : {search_addr}')
             # get target blocks

@@ -31,7 +31,16 @@ def retry_on_not_200(max_retries=10, delay=2):
             for attempt in range(max_retries):
                 response = func(*args, **kwargs)
                 if response.status_code == 200:
-                    return response
+                    try:
+                        response_json = response.json()
+                        # Check for any error code in the response
+                        if 'error' in response_json and 'code' in response_json['error']:
+                            print(f"Attempt {attempt + 1} of {max_retries} encountered an error. Retrying in {delay} seconds...")
+                        else:
+                            return response  # Successful request with no error
+                    except ValueError:
+                        # Response is not JSON or does not have expected structure
+                        return response
                 print(f"Attempt {attempt + 1} of {max_retries} failed with status {response.status_code}. Retrying in {delay} seconds...")
                 time.sleep(delay)
             print("Max retries reached. Request failed.")
@@ -81,7 +90,7 @@ class Transfer_Decoder():
     
     @retry_on_not_200(max_retries=MAX_TRIES, delay=TIME_DELAY)
     def get_url(self, url):
-        response = requests.get(url)
+        response = requests.get(url,timeout=None)
         return response
 
 
