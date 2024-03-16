@@ -694,13 +694,16 @@ class Eth_tracker():
         collect = pd.DataFrame()
         for tr in traces:
             tx = {}
-
+            # print(tr)
             # actions
             if('action' in list(tr.keys())):
                 action = tr['action']
                 for k,v in action.items():
                     tx[k] = v
-                
+            if('error' in list(tr.keys())):
+                logger.error(f'error detected : {tr}')
+                continue
+
             tx['blockHash'] = tr['blockHash']
             tx['blockNumber'] = tr['blockNumber']
             if(tr['result'] is None): # some edge case where trace itself is not none but 'result' is nonetype
