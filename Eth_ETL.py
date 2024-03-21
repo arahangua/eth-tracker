@@ -891,12 +891,15 @@ class Eth_tracker():
         traces = self.fetch_blocktrace(self.apis['RPC_PROVIDER'])
         
         # subset them (transactionPosition)
-        subset = []
-        for tr in traces:
-            if('transactionPosition' in tr):
-                if(str(tr['transactionPosition']) in args.tx_pos):
-                    subset.append(tr)
-            
+        if('all' in args.tx_pos):
+            subset = traces
+        else:
+            subset = []
+            for tr in traces:
+                if('transactionPosition' in tr):
+                    if(str(tr['transactionPosition']) in args.tx_pos):
+                        subset.append(tr)
+                
        
        
         if(traces is not None):
