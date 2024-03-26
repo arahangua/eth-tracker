@@ -13,6 +13,7 @@ import logging
 import hexbytes
 from functools import wraps
 import time
+import ast
 
 logger = logging.getLogger(__name__)
         
@@ -158,6 +159,7 @@ class Transfer_Decoder():
     #csv_file = args.exported_file
     #search_str= args.search_keyword
     #use_known_pattern = args.transfer_func_patterns
+        
     
     # main function that handles different transfer functions
     def decode_trace_csv(self, csv_file, parent_dir, search_str='transfer', use_known_pattern=True):
@@ -881,11 +883,82 @@ class Transfer_Decoder():
             print(f"ABI for the contract {search_addr} is not recoverable.")
             
         return contract_abi, verdict
+
+###################################################################################################
+    
+    # for decoding logs
+    def decode_logs_csv(self, csv_file):
+        csv_df = pd.read_csv(csv_file)
+ 
+        # this concat df includes multiple tx positions in a chronological order.
+        logger.info(f'decoding csv file : {csv_file}, number of logs (rows): {len(csv_df)}')        
+        concat = pd.DataFrame() 
+        for ii, log in csv_df.iterrows():
+            
+            # decode log data
+            contract_addr = log['address']
+            contract_abi = self.get_abi(contract_addr, self.apis['ETHERSCAN_API'])# Your contract ABI here
+            if(contract_abi is None):
+                logger.error(f'failed to fetch abi for {contract_addr}')
+                logger.info(f'continuing')
+                continue
+            else:
+                # create contract instance
+                contract = self.w3.eth.contract(address=contract_addr, abi=contract_abi) 
+                #get abi mapping (events)
+                event_abi_map = self.generate_event_abi_map(contract_abi)
+                #decode the log
+                decoded_data = self._decode_log(log, event_abi_map, contract)
+            
+                # prep decoded result variable
+                decoded = {}
+                decoded['blockNumber'] = log['blockNumber']
+                decoded['tx_hash'] = log['transactionHash']
+                decoded['tx_index'] = log['transactionIndex']
+                decoded['log_index'] = log['logIndex']
+                decoded['contract_addr'] = log['address']
+                decoded['event'] = decoded_data['event']
+                decoded['decoded'] = str(dict(decoded_data['args']))
+
+                decode_df = pd.DataFrame(decoded, index=[0])
+                concat = pd.concat([concat, decode_df])
+            
         
+        concat = concat.reset_index(drop='index')
+        
+        return concat
+    
+    # Generate a dictionary mapping event signature hashes to event ABIs
+    def generate_event_abi_map(self, contract_abi):
+        json_abi = json.loads(contract_abi)
+        event_abi_map = {}
+        for abi_entry in json_abi:
+            # print(abi_entry)
+            if abi_entry['type'] == 'event':
+                event_signature = f"{abi_entry['name']}({','.join([input['type'] for input in abi_entry['inputs']])})"
+                event_signature_hash = self.w3.keccak(text=event_signature).hex()
+                event_abi_map[event_signature_hash] = abi_entry    
+        return event_abi_map                    
+        
+    def _decode_log(self, log, event_abi_map, contract):
+        # Match the event signature hash
+        event_signature_hash = ast.literal_eval(log['topics'])[0] if log['topics'] else None
+        event_abi = event_abi_map.get(event_signature_hash)
 
+        if event_abi:
+            # Decode the log based on the matched event ABI
+            log['topics'] = ast.literal_eval(log['topics'])
+            log['topics'] = list(map(lambda x: bytes.fromhex(x[2:]),log['topics']))
+            return contract.events[event_abi['name']]().process_log(log)
+        else:
+            return None
 
-
-
+# import eth_utils
+# eth_utils.abi.event_abi_to_log_topic(event_abi)
+# hex_string = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
+# # Convert hex string (without the '0x' prefix) to bytes
+# byte_object = bytes.fromhex(hex_string[2:])
+# print(byte_object)
 
 
 #below for debugging purpose

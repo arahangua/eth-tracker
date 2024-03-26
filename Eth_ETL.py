@@ -537,8 +537,11 @@ class Eth_tracker():
 
         
     def make_filter(self, args, search_addr):
-        return {'fromBlock': int(args.start_block), 'toBlock': int(args.end_block), 'address': search_addr}
-        
+        if(len(args.topics)>0):
+            return {'fromBlock': int(args.start_block), 'toBlock': int(args.end_block), 'address': search_addr, 'topics': args.topics} #topics is the list of keccak256 encoded function signatures
+        else:
+            return {'fromBlock': int(args.start_block), 'toBlock': int(args.end_block), 'address': search_addr}
+
     def save_interim_filter_res(self, blocks_of_int, CONTRACTS_BK, args):
         hashed = self.get_hash_of_list(CONTRACTS_BK)
         interim_fol = f'./output/{args.start_block}_{args.end_block}/{hashed}/filter_intermediate'

@@ -61,6 +61,7 @@ def get_args():
     filter_parser.add_argument("--start_block", "-sb", type=str, required=True, help="starting blocknumber")
     filter_parser.add_argument("--end_block", '-eb', type=str, required=True, help="ending blocknumber")
     filter_parser.add_argument("--addr", "-a", type=str, nargs='+', required=True,help="Contract address of interest")
+    filter_parser.add_argument("--topics", "-t", type=str, nargs='+', required=False,help="topics of interest (optional, if not specified, get_logs returns all topics)")
     filter_parser.add_argument("--job_id", "-j", type=str, default='0', help="job id for running multiple jobs")
     
     # traces by applying filters (2k range limit) 
@@ -83,11 +84,17 @@ def get_args():
     ### decoding ###    
 
     # after trace_out job was executed, decode exported inputs with a specific search keyword for function names 
-    filter_parser = subparsers.add_parser("decode_trace", help="decode exported inputs (from trace_out job) with a specific search keyword (function name)")
+    filter_parser = subparsers.add_parser("decode_trace", help="decode exported traces (from trace_out job) with a specific search keyword (function name)")
     filter_parser.add_argument("--search_keyword", "-s", type=str, required=True, help="search keyword for function names")
     filter_parser.add_argument("--exported_file", "-e", type=str, required=True,help="exported traces (csv file)")
     filter_parser.add_argument("--transfer_func_patterns", "-p", type=str, default = False, help="if set it to True, the job will try to parse transfer functions using predefined patterns. It will fail if it finds a new pattern")
     filter_parser.add_argument("--job_id", "-j", type=str, default='0', help="job id for running multiple jobs")
+    
+    
+    filter_parser = subparsers.add_parser("decode_logs", help="decode exported logs (from get_logs job)")
+    filter_parser.add_argument("--exported_file", "-e", type=str, required=True,help="exported traces (csv file)")
+    filter_parser.add_argument("--job_id", "-j", type=str, default='0', help="job id for running multiple jobs")
+    
     
     ### price fetching ###
 
@@ -111,7 +118,7 @@ def get_args():
 # fetch the right pipeline for the given job name
 def job_parser(args):
     etl_jobs = ['contracts_from', 'contracts_to', 'txs_to', 'traces_to', 'txs_from', 'traces_from', 'apply_filter', 'get_logs', 'trace_filter', 'trace_out']
-    decode_jobs = ['decode_trace']
+    decode_jobs = ['decode_trace', 'decode_logs']
     price_fetch_jobs = ['price_current', 'price_historical']
 
     if(args.job in etl_jobs):
